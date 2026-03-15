@@ -1,11 +1,19 @@
 import { Router } from 'express';
 import { TransactionController } from '../controllers/transaction.controller';
 import { authMiddleware } from '../middlewares/auth';
+import { upload } from '../middlewares/multer';
 
 const router = Router();
 
 // All routes require authentication
 router.use(authMiddleware);
+
+// Extract transactions from uploaded file (PDF, CSV)
+router.post(
+  '/extract',
+  upload.single('file'),
+  TransactionController.extractFromFile,
+);
 
 // Get account balance
 router.get(

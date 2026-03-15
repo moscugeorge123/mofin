@@ -2,7 +2,9 @@ import { NextFunction, Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { BankAccountModel } from '../database/models/bank-account';
 import { TransactionModel } from '../database/models/transaction';
+import { TransactionFileModel } from '../database/models/transaction-file';
 import { catchMongoValidation } from '../helpers/catch-mongo-validation';
+import { ChatGPTTransactionService } from '../services/chatgpt-transaction.service';
 
 export class TransactionController {
   // Create a new transaction
@@ -251,6 +253,125 @@ export class TransactionController {
       res.json({ accountId, balance: total });
     } catch (error: any) {
       catchMongoValidation(error, res);
+    }
+  }
+
+  // Extract transactions from uploaded file (PDF, CSV)
+  static async extractFromFile(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const userId = (req as any).user.id;
+      const { accountId } = req.body;
+
+      // Check if file was uploaded
+      if (!req.file) {
+        res.status(400).json({ error: 'No file uploaded' });
+        return;
+      }
+
+      // Verify account access
+      const account = await BankAccountModel.findById(accountId);
+      if (!account || !account.hasAccess(new mongoose.Types.ObjectId(userId))) {
+        res.status(403).json({ error: 'Access denied to this account' });
+        return;
+      }
+
+      // Validate file type
+      const allowedMimeTypes = [
+        'application/pdf',
+        'text/csv',
+        'application/vnd.ms-excel',
+      ];
+      if (!allowedMimeTypes.includes(req.file.mimetype)) {
+        res.status(400).json({
+          error: 'Invalid file type. Only PDF and CSV files are supported.',
+        });
+        return;
+      }
+
+      // Create transaction file record
+      const transactionFile = new TransactionFileModel({
+        userId: new mongoose.Types.ObjectId(userId),
+        filePath: req.file.path,
+        originalName: req.file.originalname,
+        mimeType: req.file.mimetype,
+        fileSize: req.file.size,
+        status: 'pending',
+      });
+
+      await transactionFile.save();
+
+      try {
+        // Mark as processing
+        await transactionFile.markAsProcessing();
+
+        // Extract transactions using ChatGPT
+        const chatGPTService = new ChatGPTTransactionService();
+        const extractedData = await chatGPTService.extractTransactions(
+          req.file.path,
+          req.file.mimetype,
+        );
+
+        // Save extracted data
+        transactionFile.extractedData = extractedData;
+        await transactionFile.save();
+
+        // Insert transactions into database
+        const insertedTransactions = [];
+        const transactionIds: mongoose.Types.ObjectId[] = [];
+
+        for (const txData of extractedData.transactions) {
+          const transaction = new TransactionModel({
+            userId: new mongoose.Types.ObjectId(userId),
+            accountId: new mongoose.Types.ObjectId(accountId),
+            amount: {
+              sum: txData.amount.sum,
+              currency: txData.amount.currency,
+            },
+            notes: txData.notes || '',
+            state: txData.state,
+            location: txData.location,
+            store: txData.store,
+            creditDebitIndicator: txData.creditDebitIndicator,
+            status: txData.status || 'Booked',
+            date: new Date(txData.date),
+            tags: [],
+          });
+
+          await transaction.save();
+          await transaction.populate(['accountId', 'category', 'tags']);
+
+          insertedTransactions.push(transaction);
+          transactionIds.push(transaction._id as mongoose.Types.ObjectId);
+        }
+
+        // Mark file as completed
+        await transactionFile.markAsCompleted(transactionIds);
+
+        res.status(201).json({
+          message: 'Transactions extracted and saved successfully',
+          file: {
+            id: transactionFile._id,
+            originalName: transactionFile.originalName,
+            status: transactionFile.status,
+          },
+          transactions: insertedTransactions,
+          count: insertedTransactions.length,
+        });
+      } catch (error: any) {
+        // Mark file as failed
+        await transactionFile.markAsFailed(error.message);
+        throw error;
+      }
+    } catch (error: any) {
+      console.error('Error extracting transactions from file:', error);
+      res.status(500).json({
+        error: 'Failed to extract transactions from file',
+        details: error.message,
+      });
     }
   }
 }
