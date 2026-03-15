@@ -10,6 +10,8 @@ export const routeConfig = {
    */
   protectedRoutes: [
     "/",
+    "/bank-accounts",
+    "/bank-accounts/*",
     "/transactions",
     "/transactions/*",
     "/dashboard",

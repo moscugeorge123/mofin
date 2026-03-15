@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TransactionsRouteImport } from './routes/transactions'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as BankAccountsRouteImport } from './routes/bank-accounts'
 import { Route as IndexRouteImport } from './routes/index'
 
 const TransactionsRoute = TransactionsRouteImport.update({
@@ -29,6 +30,11 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BankAccountsRoute = BankAccountsRouteImport.update({
+  id: '/bank-accounts',
+  path: '/bank-accounts',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -37,12 +43,14 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/bank-accounts': typeof BankAccountsRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/transactions': typeof TransactionsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/bank-accounts': typeof BankAccountsRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/transactions': typeof TransactionsRoute
@@ -50,20 +58,28 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/bank-accounts': typeof BankAccountsRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/transactions': typeof TransactionsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/register' | '/transactions'
+  fullPaths: '/' | '/bank-accounts' | '/login' | '/register' | '/transactions'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/register' | '/transactions'
-  id: '__root__' | '/' | '/login' | '/register' | '/transactions'
+  to: '/' | '/bank-accounts' | '/login' | '/register' | '/transactions'
+  id:
+    | '__root__'
+    | '/'
+    | '/bank-accounts'
+    | '/login'
+    | '/register'
+    | '/transactions'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  BankAccountsRoute: typeof BankAccountsRoute
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
   TransactionsRoute: typeof TransactionsRoute
@@ -92,6 +108,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/bank-accounts': {
+      id: '/bank-accounts'
+      path: '/bank-accounts'
+      fullPath: '/bank-accounts'
+      preLoaderRoute: typeof BankAccountsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -104,6 +127,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  BankAccountsRoute: BankAccountsRoute,
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,
   TransactionsRoute: TransactionsRoute,

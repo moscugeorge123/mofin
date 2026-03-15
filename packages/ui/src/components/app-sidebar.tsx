@@ -7,7 +7,7 @@ import {
   SidebarContent,
   SidebarFooter,
 } from "@workspace/ui/components/sidebar"
-import { LayoutDashboardIcon, ReceiptIcon } from "lucide-react"
+import { LayoutDashboardIcon, ReceiptIcon, WalletIcon } from "lucide-react"
 
 interface User {
   name: string
@@ -37,6 +37,12 @@ export function AppSidebar({
         url: "/",
         icon: <LayoutDashboardIcon />,
         isActive: currentPath === "/",
+      },
+      {
+        title: "Bank Accounts",
+        url: "/bank-accounts",
+        icon: <WalletIcon />,
+        isActive: currentPath === "/bank-accounts",
       },
       {
         title: "Transactions",

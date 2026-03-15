@@ -18,8 +18,13 @@ export class BankAccountController {
         accessGivenTo,
       } = req.body;
 
+      // Generate bankAccountId if not provided
+      const generatedId =
+        bankAccountId ||
+        `BA-${Date.now()}-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
+
       const bankAccount = new BankAccountModel({
-        bankAccountId,
+        bankAccountId: generatedId,
         name,
         description,
         owner: userId,

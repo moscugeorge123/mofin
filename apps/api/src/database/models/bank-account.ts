@@ -49,7 +49,7 @@ const bankAccountSchema = new Schema<
   {
     bankAccountId: {
       type: String,
-      required: [true, 'Bank account ID is required'],
+      required: false,
       unique: true,
       trim: true,
       index: true,

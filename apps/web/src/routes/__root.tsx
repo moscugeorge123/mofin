@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router"
+import { Toaster } from "@workspace/ui/components/sonner"
 
 import appCss from "@workspace/ui/globals.css?url"
 
@@ -45,6 +46,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <body>
         <QueryClientProvider client={queryClient}>
           {children}
+          <Toaster />
         </QueryClientProvider>
         <Scripts />
       </body>
