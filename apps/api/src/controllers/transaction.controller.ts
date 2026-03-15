@@ -63,24 +63,74 @@ export class TransactionController {
   static async getAll(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = (req as any).user.id;
-      const { accountId, category, startDate, endDate, status } = req.query;
+      const {
+        accountId,
+        category,
+        startDate,
+        endDate,
+        status,
+        search,
+        creditDebitIndicator,
+        minAmount,
+        maxAmount,
+        page,
+        limit,
+      } = req.query;
 
       let query: any = { userId };
 
       if (accountId) query.accountId = accountId;
       if (category) query.category = category;
       if (status) query.status = status;
+      if (creditDebitIndicator)
+        query.creditDebitIndicator = creditDebitIndicator;
+
       if (startDate || endDate) {
         query.date = {};
         if (startDate) query.date.$gte = new Date(startDate as string);
         if (endDate) query.date.$lte = new Date(endDate as string);
       }
 
+      // Search in store and notes fields
+      if (search) {
+        query.$or = [
+          { store: { $regex: search, $options: 'i' } },
+          { notes: { $regex: search, $options: 'i' } },
+        ];
+      }
+
+      // Filter by amount range
+      if (minAmount || maxAmount) {
+        query['amount.sum'] = {};
+        if (minAmount)
+          query['amount.sum'].$gte = parseFloat(minAmount as string);
+        if (maxAmount)
+          query['amount.sum'].$lte = parseFloat(maxAmount as string);
+      }
+
+      // Pagination
+      const pageNumber = parseInt(page as string) || 1;
+      const pageSize = parseInt(limit as string) || 50;
+      const skip = (pageNumber - 1) * pageSize;
+
+      // Get total count for pagination
+      const totalCount = await TransactionModel.countDocuments(query);
+
       const transactions = await TransactionModel.find(query)
         .populate(['accountId', 'category', 'tags'])
-        .sort({ date: -1 });
+        .sort({ date: -1 })
+        .skip(skip)
+        .limit(pageSize);
 
-      res.json(transactions);
+      res.json({
+        data: transactions,
+        pagination: {
+          page: pageNumber,
+          limit: pageSize,
+          total: totalCount,
+          totalPages: Math.ceil(totalCount / pageSize),
+        },
+      });
     } catch (error: any) {
       catchMongoValidation(error, res);
     }

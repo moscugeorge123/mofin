@@ -15,6 +15,7 @@ export function useTransactions(params?: TransactionsQueryParams) {
   return useQuery({
     queryKey: transactionKeys.list(params),
     queryFn: () => transactionsApi.getAll(params),
+    staleTime: 5 * 60 * 1000, // 5 minutes
   })
 }
 
@@ -74,6 +75,18 @@ export function useAddTransactionTag() {
       queryClient.invalidateQueries({
         queryKey: transactionKeys.detail(variables.id),
       })
+    },
+  })
+}
+
+export function useUploadTransactionFile() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ file, accountId }: { file: File; accountId: string }) =>
+      transactionsApi.uploadFile(file, accountId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: transactionKeys.lists() })
     },
   })
 }

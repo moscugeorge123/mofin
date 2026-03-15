@@ -1,12 +1,28 @@
 import { apiClient } from "../lib/api-client"
-import type { Transaction, TransactionsQueryParams } from "../types/transaction"
+import type {
+  PaginatedTransactionsResponse,
+  Transaction,
+  TransactionsQueryParams,
+} from "../types/transaction"
 
 export const transactionsApi = {
-  getAll: async (params?: TransactionsQueryParams): Promise<Transaction[]> => {
-    const queryString = params
-      ? `?${new URLSearchParams(params as Record<string, string>).toString()}`
-      : ""
-    return apiClient.get<Transaction[]>(`/api/transactions${queryString}`)
+  getAll: async (
+    params?: TransactionsQueryParams
+  ): Promise<PaginatedTransactionsResponse> => {
+    const queryParams = new URLSearchParams()
+
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== "") {
+          queryParams.append(key, String(value))
+        }
+      })
+    }
+
+    const queryString = queryParams.toString()
+    return apiClient.get<PaginatedTransactionsResponse>(
+      `/api/transactions${queryString ? `?${queryString}` : ""}`
+    )
   },
 
   getById: async (id: string): Promise<Transaction> => {
@@ -35,8 +51,24 @@ export const transactionsApi = {
   },
 
   removeTag: async (id: string, tagId: string): Promise<Transaction> => {
-    return apiClient.delete<Transaction>(`/api/transactions/${id}/tags`, {
-      tagId,
-    } as any)
+    return apiClient.delete<Transaction>(
+      `/api/transactions/${id}/tags/${tagId}`
+    )
+  },
+
+  uploadFile: async (
+    file: File,
+    accountId: string
+  ): Promise<{
+    message: string
+    file: { id: string; originalName: string; status: string }
+    transactions: Transaction[]
+    count: number
+  }> => {
+    const formData = new FormData()
+    formData.append("file", file)
+    formData.append("accountId", accountId)
+
+    return apiClient.post("/api/transactions/extract", formData)
   },
 }

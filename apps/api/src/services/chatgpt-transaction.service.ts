@@ -1,6 +1,7 @@
 import { config } from 'dotenv';
 import fs from 'fs';
 import OpenAI from 'openai';
+import pdfParse from 'pdf-parse';
 
 config();
 
@@ -88,7 +89,7 @@ export class ChatGPTTransactionService {
       const prompt = this.buildPrompt();
 
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: 'gpt-5-mini',
         messages: [
           {
             role: 'system',
@@ -100,7 +101,6 @@ export class ChatGPTTransactionService {
             content: `${prompt}\n\nCSV Content:\n${csvContent}`,
           },
         ],
-        temperature: 0.1,
       });
 
       const content = response.choices[0]?.message?.content?.trim();
@@ -130,81 +130,43 @@ export class ChatGPTTransactionService {
         throw new Error('OpenAI client is not initialized');
       }
 
+      // Read and parse PDF file to extract text
+      const pdfBuffer = fs.readFileSync(filePath);
+      const pdfData = await pdfParse(pdfBuffer);
+      const pdfText = pdfData.text;
+
+      if (!pdfText || pdfText.trim().length === 0) {
+        throw new Error('No text content found in PDF');
+      }
+
       const prompt = this.buildPrompt();
 
-      // Upload file to OpenAI
-      const file = await this.openai.files.create({
-        file: fs.createReadStream(filePath),
-        purpose: 'assistants',
+      // Use chat completions API with extracted text
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-5-mini',
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You are a financial transaction parsing expert. Extract all transaction information accurately from the provided document and return ONLY valid JSON without any markdown formatting or additional text.',
+          },
+          {
+            role: 'user',
+            content: `${prompt}\n\nPDF Content:\n${pdfText}`,
+          },
+        ],
       });
 
-      try {
-        // Create assistant for document parsing
-        const assistant = await this.openai.beta.assistants.create({
-          name: 'Transaction Extractor',
-          instructions:
-            'You are a financial transaction parsing expert. Extract all transaction information accurately from the provided document and return ONLY valid JSON without any markdown formatting.',
-          model: 'gpt-4o',
-          tools: [{ type: 'file_search' }],
-        });
+      const content = response.choices[0]?.message?.content?.trim();
 
-        // Create thread with the file
-        const thread = await this.openai.beta.threads.create({
-          messages: [
-            {
-              role: 'user',
-              content: prompt,
-              attachments: [
-                {
-                  file_id: file.id,
-                  tools: [{ type: 'file_search' }],
-                },
-              ],
-            },
-          ],
-        });
-
-        // Run the assistant
-        const run = await this.openai.beta.threads.runs.createAndPoll(
-          thread.id,
-          {
-            assistant_id: assistant.id,
-          },
-        );
-
-        if (run.status !== 'completed') {
-          throw new Error(`Assistant run failed with status: ${run.status}`);
-        }
-
-        // Get the response
-        const messages = await this.openai.beta.threads.messages.list(
-          thread.id,
-        );
-        const assistantMessage = messages.data.find(
-          (msg) => msg.role === 'assistant',
-        );
-
-        if (!assistantMessage) {
-          throw new Error('No response from assistant');
-        }
-
-        const content =
-          assistantMessage.content[0]?.type === 'text'
-            ? assistantMessage.content[0].text.value
-            : '';
-
-        if (!content) {
-          throw new Error('Empty response from assistant');
-        }
-
-        const extractedData = this.parseGPTResponse(content);
-        this.validateTransactionData(extractedData);
-
-        return extractedData;
-      } finally {
-        // Clean up the file
-        await this.openai.files.delete(file.id).catch(console.error);
+      if (!content) {
+        throw new Error('No response from ChatGPT');
       }
+
+      const extractedData = this.parseGPTResponse(content);
+      this.validateTransactionData(extractedData);
+
+      return extractedData;
     } catch (error: any) {
       console.error('Error extracting from PDF:', error);
       throw error;
@@ -223,6 +185,30 @@ IMPORTANT INSTRUCTIONS:
 2. Extract EVERY transaction from the document
 3. A single day can have MULTIPLE transactions - extract each one separately
 4. Maintain the exact date for each transaction
+
+---- START BANCA TRANSILVANIA STATEMENT RULES ----
+It the document is from Banca Transilvania the following rules apply:
+
+Ignore all irrelevant information and extract only actual transactions.
+
+A transaction typically begins with a date formatted as DD/MM/YYYY. Everything following that line belongs to that transaction until another date appears or until a section summary begins.
+
+Ignore sections such as RULAJ ZI, SOLD FINAL ZI, SOLD FINAL CONT, TOTAL DISPONIBIL, SUME BLOCATE, bank headers, page numbers, and bank contact information.
+
+Transactions may span multiple lines. Treat all consecutive lines belonging to a transaction as a single transaction block.
+
+For each transaction return an object with the following fields:
+
+date: the transaction date in format DD/MM/YYYY.
+
+type: classify the transaction using the following rules:
+If the text contains “Plata la POS” or “Plata la POS non-BT cu card VISA” then type is card_payment.
+If the text contains “Transfer intern” then type is internal_transfer.
+If the text contains “P2P BTPay” then type is p2p_transfer.
+If the text contains “Incasare Instant” then type is incoming_transfer.
+If the text contains “Comis” or “Comision” then type is bank_fee.
+Otherwise use other.
+--- END BANCA TRANSILVANIA STATEMENT RULES ----
 
 For each transaction, extract:
 

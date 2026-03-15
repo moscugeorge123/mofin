@@ -1,5 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
+import { Alert, AlertDescription } from "@workspace/ui/components/alert"
 import { Button } from "@workspace/ui/components/button"
 import {
   Card,
@@ -102,9 +103,11 @@ function LoginPage() {
               />
 
               {loginMutation.error && (
-                <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-                  {loginMutation.error.message}
-                </div>
+                <Alert variant="destructive">
+                  <AlertDescription>
+                    {loginMutation.error.message}
+                  </AlertDescription>
+                </Alert>
               )}
 
               <Button

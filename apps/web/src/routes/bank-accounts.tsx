@@ -1,4 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router"
+import { Alert, AlertDescription } from "@workspace/ui/components/alert"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -92,9 +93,11 @@ function BankAccountsPage() {
         </CardHeader>
         <CardContent>
           {error && (
-            <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-              Error loading bank accounts: {error.message}
-            </div>
+            <Alert variant="destructive">
+              <AlertDescription>
+                Error loading bank accounts: {error.message}
+              </AlertDescription>
+            </Alert>
           )}
 
           {isLoading && (

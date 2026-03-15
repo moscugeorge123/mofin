@@ -49,4 +49,22 @@ export interface TransactionsQueryParams {
   startDate?: string
   endDate?: string
   status?: "Booked" | "Pending"
+  search?: string
+  creditDebitIndicator?: "Credit" | "Debit"
+  minAmount?: string
+  maxAmount?: string
+  page?: number
+  limit?: number
+}
+
+export interface PaginationMeta {
+  page: number
+  limit: number
+  total: number
+  totalPages: number
+}
+
+export interface PaginatedTransactionsResponse {
+  data: Transaction[]
+  pagination: PaginationMeta
 }
