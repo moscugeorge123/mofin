@@ -18,5 +18,10 @@
   "packageManager": "pnpm@9.0.6",
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "@radix-ui/react-label": "^2.1.8",
+    "@radix-ui/react-slot": "^1.2.4",
+    "react-hook-form": "^7.71.2"
   }
 }

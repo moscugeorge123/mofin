@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, redirect } from "@tanstack/react-router"
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Card,
@@ -16,112 +16,21 @@ import {
   TableRow,
 } from "@workspace/ui/components/table"
 import { DashboardLayout } from "../components/dashboard-layout"
+import { useTransactions } from "../hooks/use-transactions"
+import { authService } from "../services/auth.service"
 
 export const Route = createFileRoute("/transactions")({
+  beforeLoad: ({ location }) => {
+    if (typeof window !== "undefined" && !authService.isAuthenticated()) {
+      throw redirect({ to: "/login", search: { redirect: location.href } })
+    }
+  },
   component: TransactionsPage,
 })
 
-// Mock transaction data based on the API model
-const mockTransactions = [
-  {
-    id: "1",
-    date: new Date("2026-03-05"),
-    store: "Starbucks",
-    notes: "Morning coffee",
-    amount: { sum: -5.5, currency: "USD" },
-    state: "sent",
-    status: "Booked",
-    creditDebitIndicator: "Debit",
-    category: "Food & Drink",
-    tags: ["Coffee", "Personal"],
-  },
-  {
-    id: "2",
-    date: new Date("2026-03-04"),
-    store: "Amazon",
-    notes: "Office supplies",
-    amount: { sum: -124.99, currency: "USD" },
-    state: "sent",
-    status: "Booked",
-    creditDebitIndicator: "Debit",
-    category: "Shopping",
-    tags: ["Business"],
-  },
-  {
-    id: "3",
-    date: new Date("2026-03-03"),
-    store: "Client Payment",
-    notes: "Project invoice #1234",
-    amount: { sum: 2500.0, currency: "USD" },
-    state: "received",
-    status: "Booked",
-    creditDebitIndicator: "Credit",
-    category: "Income",
-    tags: ["Work", "Invoice"],
-  },
-  {
-    id: "4",
-    date: new Date("2026-03-02"),
-    store: "Electric Company",
-    notes: "Monthly utilities",
-    amount: { sum: -89.45, currency: "USD" },
-    state: "sent",
-    status: "Booked",
-    creditDebitIndicator: "Debit",
-    category: "Utilities",
-    tags: ["Bills"],
-  },
-  {
-    id: "5",
-    date: new Date("2026-03-01"),
-    store: "Grocery Store",
-    notes: "Weekly groceries",
-    amount: { sum: -156.32, currency: "USD" },
-    state: "sent",
-    status: "Booked",
-    creditDebitIndicator: "Debit",
-    category: "Groceries",
-    tags: ["Food", "Personal"],
-  },
-  {
-    id: "6",
-    date: new Date("2026-02-28"),
-    store: "Freelance Work",
-    notes: "Consulting services",
-    amount: { sum: 1200.0, currency: "USD" },
-    state: "received",
-    status: "Booked",
-    creditDebitIndicator: "Credit",
-    category: "Income",
-    tags: ["Work"],
-  },
-  {
-    id: "7",
-    date: new Date("2026-02-27"),
-    store: "Gas Station",
-    notes: "Fuel",
-    amount: { sum: -45.0, currency: "USD" },
-    state: "sent",
-    status: "Pending",
-    creditDebitIndicator: "Debit",
-    category: "Transportation",
-    tags: ["Car"],
-  },
-  {
-    id: "8",
-    date: new Date("2026-02-26"),
-    store: "Restaurant",
-    notes: "Team dinner",
-    amount: { sum: -78.5, currency: "USD" },
-    state: "sent",
-    status: "Booked",
-    creditDebitIndicator: "Debit",
-    category: "Food & Drink",
-    tags: ["Business", "Meal"],
-  },
-]
-
 function TransactionsPage() {
+  const { data: transactions, isLoading, error } = useTransactions()
+
   return (
     <DashboardLayout
       currentPath="/transactions"
@@ -138,70 +47,108 @@ function TransactionsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Store</TableHead>
-                <TableHead>Notes</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {mockTransactions.map((transaction) => (
-                <TableRow key={transaction.id}>
-                  <TableCell className="font-medium">
-                    {transaction.date.toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
+          {error && (
+            <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+              Error loading transactions: {error.message}
+            </div>
+          )}
+
+          {isLoading && (
+            <div className="flex items-center justify-center py-8">
+              <div className="text-sm text-muted-foreground">
+                Loading transactions...
+              </div>
+            </div>
+          )}
+
+          {!isLoading && !error && transactions && (
+            <>
+              {transactions.length === 0 ? (
+                <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
+                  No transactions found
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Store</TableHead>
+                      <TableHead>Notes</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {transactions.map((transaction) => {
+                      const categoryName =
+                        typeof transaction.category === "string"
+                          ? transaction.category
+                          : transaction.category?.name
+                      // const tagNames =
+                      //   transaction.tags?.map((tag) =>
+                      //     typeof tag === "string" ? tag : (tag as Tag).name
+                      //   ) || []
+
+                      return (
+                        <TableRow key={transaction._id}>
+                          <TableCell className="font-medium">
+                            {new Date(transaction.date).toLocaleDateString(
+                              "en-US",
+                              {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              }
+                            )}
+                          </TableCell>
+                          <TableCell>{transaction.store || "-"}</TableCell>
+                          <TableCell className="max-w-xs truncate">
+                            {transaction.notes || "-"}
+                          </TableCell>
+                          <TableCell>{categoryName || "-"}</TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={
+                                transaction.status === "Booked"
+                                  ? "default"
+                                  : "secondary"
+                              }
+                            >
+                              {transaction.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={
+                                transaction.creditDebitIndicator === "Credit"
+                                  ? "default"
+                                  : "outline"
+                              }
+                            >
+                              {transaction.creditDebitIndicator}
+                            </Badge>
+                          </TableCell>
+                          <TableCell
+                            className={`text-right font-medium ${
+                              transaction.amount.sum > 0
+                                ? "text-green-600"
+                                : "text-red-600"
+                            }`}
+                          >
+                            {transaction.amount.sum > 0 ? "+" : ""}
+                            {transaction.amount.sum.toFixed(2)}{" "}
+                            {transaction.amount.currency}
+                          </TableCell>
+                        </TableRow>
+                      )
                     })}
-                  </TableCell>
-                  <TableCell>{transaction.store}</TableCell>
-                  <TableCell className="max-w-xs truncate">
-                    {transaction.notes}
-                  </TableCell>
-                  <TableCell>{transaction.category}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        transaction.status === "Booked"
-                          ? "default"
-                          : "secondary"
-                      }
-                    >
-                      {transaction.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        transaction.creditDebitIndicator === "Credit"
-                          ? "default"
-                          : "outline"
-                      }
-                    >
-                      {transaction.creditDebitIndicator}
-                    </Badge>
-                  </TableCell>
-                  <TableCell
-                    className={`text-right font-medium ${
-                      transaction.amount.sum > 0
-                        ? "text-green-600"
-                        : "text-red-600"
-                    }`}
-                  >
-                    {transaction.amount.sum > 0 ? "+" : ""}
-                    {transaction.amount.sum.toFixed(2)}{" "}
-                    {transaction.amount.currency}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                  </TableBody>
+                </Table>
+              )}
+            </>
+          )}
         </CardContent>
       </Card>
     </DashboardLayout>

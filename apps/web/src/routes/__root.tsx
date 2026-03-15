@@ -1,6 +1,16 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router"
 
 import appCss from "@workspace/ui/globals.css?url"
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      retry: 1,
+    },
+  },
+})
 
 export const Route = createRootRoute({
   head: () => ({
@@ -33,7 +43,9 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        {children}
+        <QueryClientProvider client={queryClient}>
+          {children}
+        </QueryClientProvider>
         <Scripts />
       </body>
     </html>

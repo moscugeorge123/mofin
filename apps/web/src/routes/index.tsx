@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, redirect } from "@tanstack/react-router"
 import {
   Card,
   CardContent,
@@ -7,8 +7,16 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 import { DashboardLayout } from "../components/dashboard-layout"
+import { authService } from "../services/auth.service"
 
-export const Route = createFileRoute("/")({ component: App })
+export const Route = createFileRoute("/")({
+  beforeLoad: ({ location }) => {
+    if (typeof window !== "undefined" && !authService.isAuthenticated()) {
+      throw redirect({ to: "/login", search: { redirect: location.href } })
+    }
+  },
+  component: App,
+})
 
 function App() {
   return (

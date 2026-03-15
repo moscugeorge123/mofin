@@ -14,6 +14,8 @@ import {
   SidebarTrigger,
 } from "@workspace/ui/components/sidebar"
 import { TooltipProvider } from "@workspace/ui/components/tooltip"
+import { useLogout } from "../hooks/use-auth"
+import { useUser } from "../hooks/use-user"
 
 export type BreadcrumbItem = {
   label: string
@@ -32,10 +34,28 @@ export function DashboardLayout({
   breadcrumbItems,
   children,
 }: DashboardLayoutProps) {
+  const user = useUser()
+  const logout = useLogout()
+  const sidebarUser = user
+    ? {
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        avatar: "/avatars/shadcn.jpg",
+      }
+    : null
+
+  const handleLogout = () => {
+    logout.mutate()
+  }
+
   return (
     <TooltipProvider>
       <SidebarProvider>
-        <AppSidebar currentPath={currentPath} />
+        <AppSidebar
+          currentPath={currentPath}
+          user={sidebarUser}
+          onLogout={handleLogout}
+        />
         <SidebarInset>
           <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
             <SidebarTrigger className="-ml-1" />

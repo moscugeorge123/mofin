@@ -18,16 +18,24 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@workspace/ui/components/sidebar"
-import { EllipsisVerticalIcon, CircleUserRoundIcon, CreditCardIcon, BellIcon, LogOutIcon } from "lucide-react"
+import {
+  BellIcon,
+  CircleUserRoundIcon,
+  CreditCardIcon,
+  EllipsisVerticalIcon,
+  LogOutIcon,
+} from "lucide-react"
 
 export function NavUser({
   user,
+  onLogout,
 }: {
   user: {
     name: string
     email: string
     avatar: string
   }
+  onLogout?: () => void
 }) {
   const { isMobile } = useSidebar()
 
@@ -76,25 +84,21 @@ export function NavUser({
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem>
-                <CircleUserRoundIcon
-                />
+                <CircleUserRoundIcon />
                 Account
               </DropdownMenuItem>
               <DropdownMenuItem>
-                <CreditCardIcon
-                />
+                <CreditCardIcon />
                 Billing
               </DropdownMenuItem>
               <DropdownMenuItem>
-                <BellIcon
-                />
+                <BellIcon />
                 Notifications
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <LogOutIcon
-              />
+            <DropdownMenuItem onClick={onLogout}>
+              <LogOutIcon />
               Log out
             </DropdownMenuItem>
           </DropdownMenuContent>
