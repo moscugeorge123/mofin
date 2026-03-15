@@ -1,0 +1,16 @@
+{
+  "autorun": true,
+  "terminals": [
+    {
+      "name": "API",
+      "description": "API server",
+      "focus": true,
+      "command": "cd apps/api; npm run dev"
+    },
+    {
+      "name": "Web",
+      "description": "Web server",
+      "commands": ["cd apps/web; npm run dev"]
+    }
+  ]
+}

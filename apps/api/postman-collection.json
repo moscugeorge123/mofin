@@ -1,0 +1,1193 @@
+{
+  "info": {
+    "name": "Accounting API - Complete Test Suite",
+    "_postman_id": "accounting-api-test-suite",
+    "description": "Complete CRUD tests for all entities with bulk data insertion",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{authToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3020",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "accountId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "transactionId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "categoryId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "tagId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "productId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "receiptId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Response has token', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('token');",
+                  "    pm.expect(jsonData).to.have.property('user');",
+                  "    pm.collectionVariables.set('authToken', jsonData.token);",
+                  "    pm.collectionVariables.set('userId', jsonData.user.id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const randomEmail = `user${Date.now()}@test.com`;",
+                  "pm.collectionVariables.set('testEmail', randomEmail);",
+                  "pm.collectionVariables.set('testPassword', 'Test123456');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\",\n  \"timezone\": \"UTC\",\n  \"locale\": \"en-US\",\n  \"currency\": \"USD\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "register"]
+            }
+          }
+        },
+        {
+          "name": "Login User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has token', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('token');",
+                  "    pm.collectionVariables.set('authToken', jsonData.token);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "login"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tags - Bulk Insert",
+      "item": [
+        {
+          "name": "Create 50 Tags",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Response has tag data', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('slug');",
+                  "    pm.expect(jsonData).to.have.property('name');",
+                  "    pm.collectionVariables.set('tagId', jsonData._id);",
+                  "});",
+                  "",
+                  "// Continue creating more tags",
+                  "const currentIteration = pm.collectionVariables.get('tagIteration') || 1;",
+                  "if (currentIteration < 50) {",
+                  "    pm.collectionVariables.set('tagIteration', currentIteration + 1);",
+                  "    postman.setNextRequest('Create 50 Tags');",
+                  "} else {",
+                  "    pm.collectionVariables.set('tagIteration', 1);",
+                  "    postman.setNextRequest(null);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const iteration = pm.collectionVariables.get('tagIteration') || 1;",
+                  "const categories = ['food', 'transport', 'entertainment', 'shopping', 'bills', 'salary', 'investment', 'health', 'education', 'travel'];",
+                  "const adjectives = ['important', 'urgent', 'regular', 'monthly', 'weekly', 'annual', 'personal', 'business', 'recurring', 'one-time'];",
+                  "const category = categories[iteration % categories.length];",
+                  "const adjective = adjectives[Math.floor(iteration / categories.length) % adjectives.length];",
+                  "const slug = `${adjective}-${category}-${iteration}`;",
+                  "const name = `${adjective.charAt(0).toUpperCase() + adjective.slice(1)} ${category.charAt(0).toUpperCase() + category.slice(1)} ${iteration}`;",
+                  "const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85929E', '#F8B739', '#52BE80'];",
+                  "pm.collectionVariables.set('currentTagSlug', slug);",
+                  "pm.collectionVariables.set('currentTagName', name);",
+                  "pm.collectionVariables.set('currentTagColor', colors[iteration % colors.length]);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"slug\": \"{{currentTagSlug}}\",\n  \"name\": \"{{currentTagName}}\",\n  \"description\": \"Tag created for testing - iteration {{tagIteration}}\",\n  \"color\": \"{{currentTagColor}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/tags",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tags"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Categories - Bulk Insert",
+      "item": [
+        {
+          "name": "Create 50 Categories",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Response has category data', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('name');",
+                  "    pm.collectionVariables.set('categoryId', jsonData._id);",
+                  "});",
+                  "",
+                  "const currentIteration = pm.collectionVariables.get('categoryIteration') || 1;",
+                  "if (currentIteration < 50) {",
+                  "    pm.collectionVariables.set('categoryIteration', currentIteration + 1);",
+                  "    postman.setNextRequest('Create 50 Categories');",
+                  "} else {",
+                  "    pm.collectionVariables.set('categoryIteration', 1);",
+                  "    postman.setNextRequest(null);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const iteration = pm.collectionVariables.get('categoryIteration') || 1;",
+                  "const categories = [",
+                  "    'Groceries', 'Restaurants', 'Gas & Fuel', 'Public Transport', 'Utilities', ",
+                  "    'Internet & Phone', 'Rent', 'Mortgage', 'Insurance', 'Healthcare',",
+                  "    'Entertainment', 'Subscriptions', 'Clothing', 'Electronics', 'Home Maintenance',",
+                  "    'Personal Care', 'Education', 'Books', 'Gifts', 'Donations',",
+                  "    'Salary', 'Freelance', 'Investment Income', 'Dividends', 'Interest'",
+                  "];",
+                  "const baseName = categories[iteration % categories.length];",
+                  "const name = `${baseName} ${Math.floor(iteration / categories.length) + 1}`;",
+                  "const stores = ['Walmart', 'Amazon', 'Target', 'Costco', 'Starbucks', 'McDonalds', 'Shell'];",
+                  "const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85929E', '#F8B739', '#52BE80'];",
+                  "const icons = ['shopping-cart', 'food', 'car', 'home', 'heart', 'book', 'gift', 'wallet', 'briefcase', 'credit-card'];",
+                  "pm.collectionVariables.set('currentCategoryName', name);",
+                  "pm.collectionVariables.set('currentCategoryStore', stores[iteration % stores.length]);",
+                  "pm.collectionVariables.set('currentCategoryColor', colors[iteration % colors.length]);",
+                  "pm.collectionVariables.set('currentCategoryIcon', icons[iteration % icons.length]);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{currentCategoryName}}\",\n  \"description\": \"Category for {{currentCategoryName}} transactions\",\n  \"rules\": [\n    {\n      \"field\": \"store\",\n      \"operator\": \"contains\",\n      \"value\": \"{{currentCategoryStore}}\",\n      \"caseSensitive\": false\n    }\n  ],\n  \"color\": \"{{currentCategoryColor}}\",\n  \"icon\": \"{{currentCategoryIcon}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/categories",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "categories"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Products - Bulk Insert",
+      "item": [
+        {
+          "name": "Create 50 Products",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Response has product data', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('name');",
+                  "    pm.collectionVariables.set('productId', jsonData._id);",
+                  "});",
+                  "",
+                  "const currentIteration = pm.collectionVariables.get('productIteration') || 1;",
+                  "if (currentIteration < 50) {",
+                  "    pm.collectionVariables.set('productIteration', currentIteration + 1);",
+                  "    postman.setNextRequest('Create 50 Products');",
+                  "} else {",
+                  "    pm.collectionVariables.set('productIteration', 1);",
+                  "    postman.setNextRequest(null);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const iteration = pm.collectionVariables.get('productIteration') || 1;",
+                  "const products = [",
+                  "    'Milk', 'Bread', 'Eggs', 'Butter', 'Cheese', 'Chicken', 'Beef', 'Rice', 'Pasta', 'Tomatoes',",
+                  "    'Potatoes', 'Onions', 'Apples', 'Bananas', 'Oranges', 'Coffee', 'Tea', 'Sugar', 'Salt', 'Pepper',",
+                  "    'Yogurt', 'Juice', 'Water', 'Soda', 'Chips', 'Cookies', 'Cereal', 'Soap', 'Shampoo', 'Toothpaste'",
+                  "];",
+                  "const brands = ['Generic', 'Premium', 'Organic', 'Store Brand', 'Name Brand'];",
+                  "const stores = ['Walmart', 'Target', 'Whole Foods', 'Kroger', 'Safeway', 'Costco'];",
+                  "const categories = ['Dairy', 'Bakery', 'Meat', 'Produce', 'Beverages', 'Snacks', 'Household', 'Personal Care'];",
+                  "const baseName = products[iteration % products.length];",
+                  "const brand = brands[Math.floor(iteration / products.length) % brands.length];",
+                  "const name = `${brand} ${baseName}`;",
+                  "const barcode = `${7890000000000 + iteration}`;",
+                  "pm.collectionVariables.set('currentProductName', name);",
+                  "pm.collectionVariables.set('currentProductStore', stores[iteration % stores.length]);",
+                  "pm.collectionVariables.set('currentProductBarcode', barcode);",
+                  "pm.collectionVariables.set('currentProductCategory', categories[iteration % categories.length]);",
+                  "pm.collectionVariables.set('currentProductBrand', brand);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{currentProductName}}\",\n  \"store\": \"{{currentProductStore}}\",\n  \"description\": \"Product for testing - iteration {{productIteration}}\",\n  \"barcode\": \"{{currentProductBarcode}}\",\n  \"category\": \"{{currentProductCategory}}\",\n  \"brand\": \"{{currentProductBrand}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/products",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "products"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Bank Accounts - Bulk Insert",
+      "item": [
+        {
+          "name": "Create 50 Bank Accounts",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Response has account data', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('bankAccountId');",
+                  "    pm.collectionVariables.set('accountId', jsonData._id);",
+                  "});",
+                  "",
+                  "const currentIteration = pm.collectionVariables.get('accountIteration') || 1;",
+                  "if (currentIteration < 50) {",
+                  "    pm.collectionVariables.set('accountIteration', currentIteration + 1);",
+                  "    postman.setNextRequest('Create 50 Bank Accounts');",
+                  "} else {",
+                  "    pm.collectionVariables.set('accountIteration', 1);",
+                  "    postman.setNextRequest(null);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const iteration = pm.collectionVariables.get('accountIteration') || 1;",
+                  "const types = ['Personal', 'Business'];",
+                  "const subTypes = ['CurrentAccount', 'Savings', 'CreditCard'];",
+                  "const currencies = ['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD'];",
+                  "const banks = ['Chase', 'Bank of America', 'Wells Fargo', 'Citibank', 'Capital One', 'US Bank', 'PNC', 'TD Bank'];",
+                  "const accountTypes = ['Checking', 'Savings', 'Credit', 'Investment', 'Business'];",
+                  "const type = types[iteration % types.length];",
+                  "const subType = subTypes[iteration % subTypes.length];",
+                  "const currency = currencies[iteration % currencies.length];",
+                  "const bank = banks[iteration % banks.length];",
+                  "const accountType = accountTypes[iteration % accountTypes.length];",
+                  "const bankAccountId = `ACC${String(10000 + iteration).padStart(8, '0')}`;",
+                  "const name = `${bank} ${accountType} ${iteration}`;",
+                  "pm.collectionVariables.set('currentBankAccountId', bankAccountId);",
+                  "pm.collectionVariables.set('currentAccountName', name);",
+                  "pm.collectionVariables.set('currentAccountType', type);",
+                  "pm.collectionVariables.set('currentAccountSubType', subType);",
+                  "pm.collectionVariables.set('currentAccountCurrency', currency);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bankAccountId\": \"{{currentBankAccountId}}\",\n  \"name\": \"{{currentAccountName}}\",\n  \"description\": \"Test account created for iteration {{accountIteration}}\",\n  \"currency\": \"{{currentAccountCurrency}}\",\n  \"type\": \"{{currentAccountType}}\",\n  \"subType\": \"{{currentAccountSubType}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/bank-accounts",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "bank-accounts"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Transactions - Bulk Insert",
+      "item": [
+        {
+          "name": "Get First Account ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const accounts = pm.response.json();",
+                  "if (accounts && accounts.length > 0) {",
+                  "    pm.collectionVariables.set('accountId', accounts[0]._id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/bank-accounts",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "bank-accounts"]
+            }
+          }
+        },
+        {
+          "name": "Create 100 Transactions",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Response has transaction data', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('amount');",
+                  "    pm.collectionVariables.set('transactionId', jsonData._id);",
+                  "});",
+                  "",
+                  "const currentIteration = pm.collectionVariables.get('transactionIteration') || 1;",
+                  "if (currentIteration < 100) {",
+                  "    pm.collectionVariables.set('transactionIteration', currentIteration + 1);",
+                  "    postman.setNextRequest('Create 100 Transactions');",
+                  "} else {",
+                  "    pm.collectionVariables.set('transactionIteration', 1);",
+                  "    postman.setNextRequest(null);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const iteration = pm.collectionVariables.get('transactionIteration') || 1;",
+                  "const states = ['sent', 'received'];",
+                  "const indicators = ['Credit', 'Debit'];",
+                  "const statuses = ['Booked', 'Pending'];",
+                  "const stores = ['Walmart', 'Amazon', 'Target', 'Starbucks', 'McDonalds', 'Shell', 'Costco', 'Whole Foods', 'Apple Store', 'Best Buy'];",
+                  "const locations = ['New York, NY', 'Los Angeles, CA', 'Chicago, IL', 'Houston, TX', 'Phoenix, AZ', 'Philadelphia, PA', 'San Antonio, TX', 'San Diego, CA'];",
+                  "const currencies = ['USD', 'EUR', 'GBP'];",
+                  "const state = states[iteration % 2];",
+                  "const indicator = state === 'sent' ? 'Debit' : 'Credit';",
+                  "const status = statuses[iteration % statuses.length];",
+                  "const store = stores[iteration % stores.length];",
+                  "const location = locations[iteration % locations.length];",
+                  "const currency = currencies[iteration % currencies.length];",
+                  "const amount = (Math.random() * 500 + 10).toFixed(2);",
+                  "const daysAgo = Math.floor(Math.random() * 365);",
+                  "const date = new Date();",
+                  "date.setDate(date.getDate() - daysAgo);",
+                  "pm.collectionVariables.set('currentTransactionState', state);",
+                  "pm.collectionVariables.set('currentTransactionIndicator', indicator);",
+                  "pm.collectionVariables.set('currentTransactionStatus', status);",
+                  "pm.collectionVariables.set('currentTransactionStore', store);",
+                  "pm.collectionVariables.set('currentTransactionLocation', location);",
+                  "pm.collectionVariables.set('currentTransactionAmount', amount);",
+                  "pm.collectionVariables.set('currentTransactionCurrency', currency);",
+                  "pm.collectionVariables.set('currentTransactionDate', date.toISOString());"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountId\": \"{{accountId}}\",\n  \"amount\": {\n    \"sum\": {{currentTransactionAmount}},\n    \"currency\": \"{{currentTransactionCurrency}}\"\n  },\n  \"notes\": \"Transaction {{transactionIteration}} at {{currentTransactionStore}}\",\n  \"state\": \"{{currentTransactionState}}\",\n  \"store\": \"{{currentTransactionStore}}\",\n  \"location\": \"{{currentTransactionLocation}}\",\n  \"creditDebitIndicator\": \"{{currentTransactionIndicator}}\",\n  \"status\": \"{{currentTransactionStatus}}\",\n  \"date\": \"{{currentTransactionDate}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/transactions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "transactions"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Receipts - Bulk Insert",
+      "item": [
+        {
+          "name": "Get First Transaction ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const transactions = pm.response.json();",
+                  "if (transactions && transactions.length > 0) {",
+                  "    pm.collectionVariables.set('transactionId', transactions[0]._id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/transactions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "transactions"]
+            }
+          }
+        },
+        {
+          "name": "Create 50 Receipts",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Response has receipt data', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('price');",
+                  "    pm.collectionVariables.set('receiptId', jsonData._id);",
+                  "});",
+                  "",
+                  "const currentIteration = pm.collectionVariables.get('receiptIteration') || 1;",
+                  "if (currentIteration < 50) {",
+                  "    pm.collectionVariables.set('receiptIteration', currentIteration + 1);",
+                  "    postman.setNextRequest('Create 50 Receipts');",
+                  "} else {",
+                  "    pm.collectionVariables.set('receiptIteration', 1);",
+                  "    postman.setNextRequest(null);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const iteration = pm.collectionVariables.get('receiptIteration') || 1;",
+                  "const stores = ['Walmart', 'Target', 'Whole Foods', 'Kroger', 'Safeway', 'Costco', 'CVS', 'Walgreens'];",
+                  "const locations = ['123 Main St', '456 Oak Ave', '789 Elm Rd', '321 Pine Ln', '654 Maple Dr'];",
+                  "const store = stores[iteration % stores.length];",
+                  "const location = locations[iteration % locations.length];",
+                  "const price = (Math.random() * 200 + 20).toFixed(2);",
+                  "const daysAgo = Math.floor(Math.random() * 180);",
+                  "const date = new Date();",
+                  "date.setDate(date.getDate() - daysAgo);",
+                  "pm.collectionVariables.set('currentReceiptStore', store);",
+                  "pm.collectionVariables.set('currentReceiptLocation', location);",
+                  "pm.collectionVariables.set('currentReceiptPrice', price);",
+                  "pm.collectionVariables.set('currentReceiptDate', date.toISOString());"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transactionId\": \"{{transactionId}}\",\n  \"price\": {{currentReceiptPrice}},\n  \"store\": \"{{currentReceiptStore}}\",\n  \"location\": \"{{currentReceiptLocation}}\",\n  \"date\": \"{{currentReceiptDate}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/receipts",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "receipts"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Receipt Products - Bulk Insert",
+      "item": [
+        {
+          "name": "Get First Receipt and Product IDs",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const receipts = pm.response.json();",
+                  "if (receipts && receipts.length > 0) {",
+                  "    pm.collectionVariables.set('receiptId', receipts[0]._id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/receipts",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "receipts"]
+            }
+          }
+        },
+        {
+          "name": "Get Product IDs",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const products = pm.response.json();",
+                  "if (products && products.length > 0) {",
+                  "    const productIds = products.map(p => p._id);",
+                  "    pm.collectionVariables.set('allProductIds', JSON.stringify(productIds));",
+                  "    pm.collectionVariables.set('productId', products[0]._id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/products",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "products"]
+            }
+          }
+        },
+        {
+          "name": "Create 50 Receipt Products",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Response has receipt product data', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('productId');",
+                  "    pm.expect(jsonData).to.have.property('receiptId');",
+                  "});",
+                  "",
+                  "const currentIteration = pm.collectionVariables.get('receiptProductIteration') || 1;",
+                  "if (currentIteration < 50) {",
+                  "    pm.collectionVariables.set('receiptProductIteration', currentIteration + 1);",
+                  "    postman.setNextRequest('Create 50 Receipt Products');",
+                  "} else {",
+                  "    pm.collectionVariables.set('receiptProductIteration', 1);",
+                  "    postman.setNextRequest(null);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const iteration = pm.collectionVariables.get('receiptProductIteration') || 1;",
+                  "const productIds = JSON.parse(pm.collectionVariables.get('allProductIds') || '[]');",
+                  "const productId = productIds[iteration % productIds.length];",
+                  "const productNames = ['Milk', 'Bread', 'Eggs', 'Butter', 'Cheese', 'Chicken', 'Rice', 'Pasta'];",
+                  "const quantityTypes = ['KG', 'G', 'L', 'ML', 'PCS', 'BUC', 'UNIT', 'BOX', 'PACK'];",
+                  "const name = productNames[iteration % productNames.length] + ' #' + iteration;",
+                  "const price = (Math.random() * 20 + 2).toFixed(2);",
+                  "const quantity = (Math.random() * 5 + 0.5).toFixed(2);",
+                  "const quantityType = quantityTypes[iteration % quantityTypes.length];",
+                  "const discount = Math.random() > 0.7 ? (Math.random() * 20).toFixed(0) : 0;",
+                  "pm.collectionVariables.set('currentProductId', productId);",
+                  "pm.collectionVariables.set('currentReceiptProductName', name);",
+                  "pm.collectionVariables.set('currentReceiptProductPrice', price);",
+                  "pm.collectionVariables.set('currentReceiptProductQuantity', quantity);",
+                  "pm.collectionVariables.set('currentReceiptProductQuantityType', quantityType);",
+                  "pm.collectionVariables.set('currentReceiptProductDiscount', discount);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"{{currentProductId}}\",\n  \"receiptId\": \"{{receiptId}}\",\n  \"name\": \"{{currentReceiptProductName}}\",\n  \"price\": {{currentReceiptProductPrice}},\n  \"quantity\": {{currentReceiptProductQuantity}},\n  \"quantityType\": \"{{currentReceiptProductQuantityType}}\",\n  \"discount\": {{currentReceiptProductDiscount}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/receipt-products",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "receipt-products"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "CRUD Tests",
+      "item": [
+        {
+          "name": "Get All Tags",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response is an array', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(Array.isArray(jsonData)).to.be.true;",
+                  "    pm.expect(jsonData.length).to.be.at.least(50);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/tags",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tags"]
+            }
+          }
+        },
+        {
+          "name": "Get All Categories",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has at least 50 categories', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(Array.isArray(jsonData)).to.be.true;",
+                  "    pm.expect(jsonData.length).to.be.at.least(50);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/categories",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "categories"]
+            }
+          }
+        },
+        {
+          "name": "Get All Products",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has at least 50 products', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(Array.isArray(jsonData)).to.be.true;",
+                  "    pm.expect(jsonData.length).to.be.at.least(50);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/products",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "products"]
+            }
+          }
+        },
+        {
+          "name": "Get All Bank Accounts",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has at least 50 accounts', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(Array.isArray(jsonData)).to.be.true;",
+                  "    pm.expect(jsonData.length).to.be.at.least(50);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/bank-accounts",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "bank-accounts"]
+            }
+          }
+        },
+        {
+          "name": "Get All Transactions",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has at least 100 transactions', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(Array.isArray(jsonData)).to.be.true;",
+                  "    pm.expect(jsonData.length).to.be.at.least(100);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/transactions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "transactions"]
+            }
+          }
+        },
+        {
+          "name": "Get All Receipts",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has at least 50 receipts', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(Array.isArray(jsonData)).to.be.true;",
+                  "    pm.expect(jsonData.length).to.be.at.least(50);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/receipts",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "receipts"]
+            }
+          }
+        },
+        {
+          "name": "Get All Receipt Products",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has at least 50 receipt products', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(Array.isArray(jsonData)).to.be.true;",
+                  "    pm.expect(jsonData.length).to.be.at.least(50);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/receipt-products",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "receipt-products"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
