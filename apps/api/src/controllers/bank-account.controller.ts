@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { BankAccountModel } from '../database/models/bank-account';
+import { UserModel } from '../database/models/user';
 import { catchMongoValidation } from '../helpers/catch-mongo-validation';
 
 export class BankAccountController {
@@ -141,7 +142,7 @@ export class BankAccountController {
     try {
       const userId = (req as any).user.id;
       const { id } = req.params;
-      const { targetUserId } = req.body;
+      const { targetUserId, email } = req.body;
 
       const account = await BankAccountModel.findById(id);
 
@@ -155,7 +156,26 @@ export class BankAccountController {
         return;
       }
 
-      await account.grantAccess(new mongoose.Types.ObjectId(targetUserId));
+      let targetUserObjectId: mongoose.Types.ObjectId;
+
+      // Support both email and userId
+      if (email) {
+        const targetUser = await UserModel.findByEmail(email);
+        if (!targetUser) {
+          res.status(404).json({ error: 'User not found with that email' });
+          return;
+        }
+        targetUserObjectId = targetUser._id as mongoose.Types.ObjectId;
+      } else if (targetUserId) {
+        targetUserObjectId = new mongoose.Types.ObjectId(targetUserId);
+      } else {
+        res
+          .status(400)
+          .json({ error: 'Either email or targetUserId is required' });
+        return;
+      }
+
+      await account.grantAccess(targetUserObjectId);
       res.json(account);
     } catch (error: any) {
       catchMongoValidation(error, res);
@@ -183,6 +203,34 @@ export class BankAccountController {
 
       await account.revokeAccess(new mongoose.Types.ObjectId(targetUserId));
       res.json(account);
+    } catch (error: any) {
+      catchMongoValidation(error, res);
+    }
+  }
+
+  // Get collaborators (users with access) for a bank account
+  static async getCollaborators(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user.id;
+      const { id } = req.params;
+
+      const account = await BankAccountModel.findById(id).populate(
+        'accessGivenTo',
+        '_id firstName lastName email',
+      );
+
+      if (!account) {
+        res.status(404).json({ error: 'Bank account not found' });
+        return;
+      }
+
+      // Check if user has access
+      if (!account.hasAccess(new mongoose.Types.ObjectId(userId))) {
+        res.status(403).json({ error: 'Access denied' });
+        return;
+      }
+
+      res.json({ collaborators: account.accessGivenTo });
     } catch (error: any) {
       catchMongoValidation(error, res);
     }

@@ -94,13 +94,21 @@ export class ChatGPTTransactionService {
           {
             role: 'system',
             content:
-              'You are a financial transaction parsing expert. Extract all transaction information accurately and return ONLY valid JSON without any markdown formatting or additional text.',
+              'You are a financial transaction parsing expert. Extract all transaction information accurately from the provided document.',
           },
           {
             role: 'user',
             content: `${prompt}\n\nCSV Content:\n${csvContent}`,
           },
         ],
+        response_format: {
+          type: 'json_schema',
+          json_schema: {
+            name: 'transaction_extraction',
+            strict: true,
+            schema: this.getTransactionSchema(),
+          },
+        },
       });
 
       const content = response.choices[0]?.message?.content?.trim();
@@ -109,7 +117,7 @@ export class ChatGPTTransactionService {
         throw new Error('No response from ChatGPT');
       }
 
-      const extractedData = this.parseGPTResponse(content);
+      const extractedData = JSON.parse(content) as TransactionExtractionResult;
       this.validateTransactionData(extractedData);
 
       return extractedData;
@@ -141,20 +149,28 @@ export class ChatGPTTransactionService {
 
       const prompt = this.buildPrompt();
 
-      // Use chat completions API with extracted text
+      // Use chat completions API with structured output
       const response = await this.openai.chat.completions.create({
         model: 'gpt-5-mini',
         messages: [
           {
             role: 'system',
             content:
-              'You are a financial transaction parsing expert. Extract all transaction information accurately from the provided document and return ONLY valid JSON without any markdown formatting or additional text.',
+              'You are a financial transaction parsing expert. Extract all transaction information accurately from the provided document.',
           },
           {
             role: 'user',
             content: `${prompt}\n\nPDF Content:\n${pdfText}`,
           },
         ],
+        response_format: {
+          type: 'json_schema',
+          json_schema: {
+            name: 'transaction_extraction',
+            strict: true,
+            schema: this.getTransactionSchema(),
+          },
+        },
       });
 
       const content = response.choices[0]?.message?.content?.trim();
@@ -163,7 +179,7 @@ export class ChatGPTTransactionService {
         throw new Error('No response from ChatGPT');
       }
 
-      const extractedData = this.parseGPTResponse(content);
+      const extractedData = JSON.parse(content) as TransactionExtractionResult;
       this.validateTransactionData(extractedData);
 
       return extractedData;
@@ -178,16 +194,15 @@ export class ChatGPTTransactionService {
    */
   private buildPrompt(): string {
     return `
-Analyze this bank statement or transaction document and extract ALL transactions into a structured JSON format.
+Analyze this bank statement or transaction document and extract ALL transactions into a structured format.
 
 IMPORTANT INSTRUCTIONS:
-1. Return ONLY valid JSON, no markdown code blocks, no explanations
-2. Extract EVERY transaction from the document
-3. A single day can have MULTIPLE transactions - extract each one separately
-4. Maintain the exact date for each transaction
+1. Extract EVERY transaction from the document
+2. A single day can have MULTIPLE transactions - extract each one separately
+3. Maintain the exact date for each transaction
 
 ---- START BANCA TRANSILVANIA STATEMENT RULES ----
-It the document is from Banca Transilvania the following rules apply:
+If the document is from Banca Transilvania the following rules apply:
 
 Ignore all irrelevant information and extract only actual transactions.
 
@@ -197,18 +212,16 @@ Ignore sections such as RULAJ ZI, SOLD FINAL ZI, SOLD FINAL CONT, TOTAL DISPONIB
 
 Transactions may span multiple lines. Treat all consecutive lines belonging to a transaction as a single transaction block.
 
-For each transaction return an object with the following fields:
-
-date: the transaction date in format DD/MM/YYYY.
-
-type: classify the transaction using the following rules:
-If the text contains “Plata la POS” or “Plata la POS non-BT cu card VISA” then type is card_payment.
-If the text contains “Transfer intern” then type is internal_transfer.
-If the text contains “P2P BTPay” then type is p2p_transfer.
-If the text contains “Incasare Instant” then type is incoming_transfer.
-If the text contains “Comis” or “Comision” then type is bank_fee.
-Otherwise use other.
---- END BANCA TRANSILVANIA STATEMENT RULES ----
+For each transaction:
+- date: the transaction date in format DD/MM/YYYY
+- type: classify the transaction using the following rules:
+  - If the text contains "Plata la POS" or "Plata la POS non-BT cu card VISA" then type is card_payment
+  - If the text contains "Transfer intern" then type is internal_transfer
+  - If the text contains "P2P BTPay" then type is p2p_transfer
+  - If the text contains "Incasare Instant" then type is incoming_transfer
+  - If the text contains "Comis" or "Comision" then type is bank_fee
+  - Otherwise use other
+---- END BANCA TRANSILVANIA STATEMENT RULES ----
 
 For each transaction, extract:
 
@@ -232,71 +245,108 @@ CRITICAL RULES:
 - state should match creditDebitIndicator: "received" for Credit, "sent" for Debit
 - Date must be in YYYY-MM-DD format
 - If currency is not specified, try to infer from document header or use "USD" as default
-- Return empty object {} for accountInfo if account details are not clearly visible
-
-Expected JSON structure:
-{
-  "transactions": [
-    {
-      "amount": {
-        "sum": 150.50,
-        "currency": "USD"
-      },
-      "notes": "Payment for services",
-      "state": "sent",
-      "location": "New York, NY",
-      "store": "Amazon",
-      "creditDebitIndicator": "Debit",
-      "status": "Booked",
-      "date": "2024-03-15"
-    },
-    {
-      "amount": {
-        "sum": 2500.00,
-        "currency": "USD"
-      },
-      "notes": "Salary deposit",
-      "state": "received",
-      "creditDebitIndicator": "Credit",
-      "status": "Booked",
-      "date": "2024-03-01"
-    }
-  ],
-  "accountInfo": {
-    "accountName": "Checking Account",
-    "accountNumber": "****1234"
-  }
-}
+- If account details are not clearly visible, set accountInfo fields to null or omit them
 
 EXAMPLES OF CREDIT/DEBIT:
 - Bank deposit, salary, refund → creditDebitIndicator: "Credit", state: "received"
 - Purchase, withdrawal, payment → creditDebitIndicator: "Debit", state: "sent"
-
-Return ONLY the JSON object, nothing else.
 `.trim();
   }
 
   /**
-   * Parse ChatGPT response and extract JSON
+   * Get the JSON schema for transaction extraction
+   * This schema is used with OpenAI's Responses API for structured outputs
    */
-  private parseGPTResponse(content: string): TransactionExtractionResult {
-    try {
-      // Remove markdown code blocks if present
-      let jsonString = content.trim();
-
-      // Remove ```json and ``` if present
-      jsonString = jsonString.replace(/^```json?\s*/i, '');
-      jsonString = jsonString.replace(/```\s*$/, '');
-      jsonString = jsonString.trim();
-
-      // Parse the JSON
-      const parsed = JSON.parse(jsonString);
-
-      return parsed as TransactionExtractionResult;
-    } catch (error) {
-      console.error('Failed to parse GPT response:', content);
-      throw new Error('Invalid JSON response from ChatGPT');
-    }
+  private getTransactionSchema() {
+    return {
+      type: 'object',
+      properties: {
+        transactions: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              amount: {
+                type: 'object',
+                properties: {
+                  sum: {
+                    type: 'number',
+                    description: 'Transaction amount as a positive number',
+                  },
+                  currency: {
+                    type: 'string',
+                    description: 'Currency code (e.g., USD, EUR, RON)',
+                  },
+                },
+                required: ['sum', 'currency'],
+                additionalProperties: false,
+              },
+              notes: {
+                type: ['string', 'null'],
+                description: 'Additional transaction description or reference',
+              },
+              state: {
+                type: 'string',
+                enum: ['sent', 'received'],
+                description:
+                  'Transaction direction: sent for outgoing, received for incoming',
+              },
+              location: {
+                type: ['string', 'null'],
+                description: 'Location or address if available',
+              },
+              store: {
+                type: ['string', 'null'],
+                description: 'Store or merchant name if available',
+              },
+              creditDebitIndicator: {
+                type: 'string',
+                enum: ['Credit', 'Debit'],
+                description: 'Credit for money in, Debit for money out',
+              },
+              status: {
+                type: 'string',
+                enum: ['Booked', 'Pending'],
+                description: 'Transaction status',
+              },
+              date: {
+                type: 'string',
+                pattern: '^\\d{4}-\\d{2}-\\d{2}$',
+                description: 'Transaction date in YYYY-MM-DD format',
+              },
+            },
+            required: [
+              'amount',
+              'notes',
+              'state',
+              'location',
+              'store',
+              'creditDebitIndicator',
+              'status',
+              'date',
+            ],
+            additionalProperties: false,
+          },
+        },
+        accountInfo: {
+          type: ['object', 'null'],
+          properties: {
+            accountName: {
+              type: ['string', 'null'],
+              description: 'Account name if available',
+            },
+            accountNumber: {
+              type: ['string', 'null'],
+              description: 'Account number (masked if needed)',
+            },
+          },
+          required: ['accountName', 'accountNumber'],
+          additionalProperties: false,
+        },
+      },
+      required: ['transactions', 'accountInfo'],
+      additionalProperties: false,
+    };
   }
 
   /**

@@ -40,6 +40,7 @@ import type { Transaction } from "../types/transaction"
 interface UploadTransactionDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  accountId?: string // Optional: if provided, skip account selection step
 }
 
 type Step = "select-account" | "upload-file" | "processing" | "result"
@@ -47,9 +48,14 @@ type Step = "select-account" | "upload-file" | "processing" | "result"
 export function UploadTransactionDialog({
   open,
   onOpenChange,
+  accountId,
 }: UploadTransactionDialogProps) {
-  const [step, setStep] = useState<Step>("select-account")
-  const [selectedAccountId, setSelectedAccountId] = useState<string>("")
+  const [step, setStep] = useState<Step>(
+    accountId ? "upload-file" : "select-account"
+  )
+  const [selectedAccountId, setSelectedAccountId] = useState<string>(
+    accountId || ""
+  )
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [uploadedTransactions, setUploadedTransactions] = useState<
     Transaction[]
@@ -65,6 +71,21 @@ export function UploadTransactionDialog({
 
   // Use global polling data instead of individual polling
   const { data: filesData } = useTransactionFiles()
+
+  // Effect to initialize/reset state when dialog opens with accountId
+  useEffect(() => {
+    if (open && accountId) {
+      setStep("upload-file")
+      setSelectedAccountId(accountId)
+      setSelectedFile(null)
+      setUploadedTransactions([])
+      setError("")
+      setFileId(null)
+      setIsCached(false)
+      setProcessingMessage("")
+      fetchedFileRef.current = null
+    }
+  }, [open, accountId])
 
   // Effect to watch for file status changes in global polling
   useEffect(() => {
@@ -143,8 +164,8 @@ export function UploadTransactionDialog({
 
   const handleClose = () => {
     // Reset state
-    setStep("select-account")
-    setSelectedAccountId("")
+    setStep(accountId ? "upload-file" : "select-account")
+    setSelectedAccountId(accountId || "")
     setSelectedFile(null)
     setUploadedTransactions([])
     setError("")
@@ -347,12 +368,19 @@ export function UploadTransactionDialog({
 
           {step === "upload-file" && (
             <>
-              <Button
-                variant="outline"
-                onClick={() => setStep("select-account")}
-              >
-                Back
-              </Button>
+              {!accountId && (
+                <Button
+                  variant="outline"
+                  onClick={() => setStep("select-account")}
+                >
+                  Back
+                </Button>
+              )}
+              {accountId && (
+                <Button variant="outline" onClick={handleClose}>
+                  Cancel
+                </Button>
+              )}
               <Button onClick={handleUpload} disabled={!canUpload}>
                 Upload & Process
               </Button>

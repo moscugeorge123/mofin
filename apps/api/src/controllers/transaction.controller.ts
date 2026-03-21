@@ -78,7 +78,13 @@ export class TransactionController {
         limit,
       } = req.query;
 
-      let query: any = { userId };
+      // Get all accounts the user has access to
+      const accessibleAccounts = await BankAccountModel.findAccessibleByUser(
+        new mongoose.Types.ObjectId(userId),
+      );
+      const accessibleAccountIds = accessibleAccounts.map((acc) => acc._id);
+
+      let query: any = { accountId: { $in: accessibleAccountIds } };
 
       if (accountId) query.accountId = accountId;
       if (category) query.category = category;
@@ -155,7 +161,9 @@ export class TransactionController {
         return;
       }
 
-      if (!transaction.userId.equals(new mongoose.Types.ObjectId(userId))) {
+      // Verify user has access to the account
+      const account = await BankAccountModel.findById(transaction.accountId);
+      if (!account || !account.hasAccess(new mongoose.Types.ObjectId(userId))) {
         res.status(403).json({ error: 'Access denied' });
         return;
       }
@@ -180,7 +188,9 @@ export class TransactionController {
         return;
       }
 
-      if (!transaction.userId.equals(new mongoose.Types.ObjectId(userId))) {
+      // Verify user has access to the account
+      const account = await BankAccountModel.findById(transaction.accountId);
+      if (!account || !account.hasAccess(new mongoose.Types.ObjectId(userId))) {
         res.status(403).json({ error: 'Access denied' });
         return;
       }
@@ -212,7 +222,9 @@ export class TransactionController {
         return;
       }
 
-      if (!transaction.userId.equals(new mongoose.Types.ObjectId(userId))) {
+      // Verify user has access to the account
+      const account = await BankAccountModel.findById(transaction.accountId);
+      if (!account || !account.hasAccess(new mongoose.Types.ObjectId(userId))) {
         res.status(403).json({ error: 'Access denied' });
         return;
       }
@@ -238,7 +250,9 @@ export class TransactionController {
         return;
       }
 
-      if (!transaction.userId.equals(new mongoose.Types.ObjectId(userId))) {
+      // Verify user has access to the account
+      const account = await BankAccountModel.findById(transaction.accountId);
+      if (!account || !account.hasAccess(new mongoose.Types.ObjectId(userId))) {
         res.status(403).json({ error: 'Access denied' });
         return;
       }
@@ -266,7 +280,9 @@ export class TransactionController {
         return;
       }
 
-      if (!transaction.userId.equals(new mongoose.Types.ObjectId(userId))) {
+      // Verify user has access to the account
+      const account = await BankAccountModel.findById(transaction.accountId);
+      if (!account || !account.hasAccess(new mongoose.Types.ObjectId(userId))) {
         res.status(403).json({ error: 'Access denied' });
         return;
       }

@@ -1,4 +1,5 @@
 import { apiClient } from "../lib/api-client"
+import type { User } from "../types/auth"
 import type {
   BankAccount,
   CreateBankAccountRequest,
@@ -26,5 +27,32 @@ export const bankAccountService = {
 
   async delete(id: string): Promise<void> {
     return apiClient.delete<void>(`/api/bank-accounts/${id}`)
+  },
+
+  async getCollaborators(accountId: string): Promise<User[]> {
+    const response = await apiClient.get<{ collaborators: User[] }>(
+      `/api/bank-accounts/${accountId}/collaborators`
+    )
+    return response.collaborators
+  },
+
+  async addCollaborator(
+    accountId: string,
+    email: string
+  ): Promise<BankAccount> {
+    return apiClient.post<BankAccount>(
+      `/api/bank-accounts/${accountId}/grant-access`,
+      { email }
+    )
+  },
+
+  async removeCollaborator(
+    accountId: string,
+    userId: string
+  ): Promise<BankAccount> {
+    return apiClient.post<BankAccount>(
+      `/api/bank-accounts/${accountId}/revoke-access`,
+      { targetUserId: userId }
+    )
   },
 }

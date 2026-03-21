@@ -22,6 +22,9 @@ router.put('/:id', BankAccountController.update);
 // Delete bank account
 router.delete('/:id', BankAccountController.delete);
 
+// Get collaborators for bank account
+router.get('/:id/collaborators', BankAccountController.getCollaborators);
+
 // Grant access to another user
 router.post('/:id/grant-access', BankAccountController.grantAccess);
 

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useRef } from "react"
+import { toast } from "sonner"
 import { transactionsApi } from "../services/transactions.service"
 import type { Transaction, TransactionsQueryParams } from "../types/transaction"
 
@@ -137,21 +138,21 @@ export function useTransactionFiles() {
     refetchInterval: (queryData) => {
       // Check if there are any pending or processing files
       const files = queryData.state.data?.files || []
-      const hasPendingFiles = files.some(
+      const hasProcessingFiles = files.some(
         (file) => file.status === "pending" || file.status === "processing"
       )
 
-      // Poll every 3 seconds if there are pending files
-      if (hasPendingFiles) {
-        return 3000
+      // Only poll when there are files being processed
+      if (hasProcessingFiles) {
+        return 3000 // Poll every 3 seconds
       }
 
-      // Stop polling if all files are completed or failed, but refetch once every 30 seconds to check for new files
-      return 30000
+      // Stop polling if all files are completed or failed
+      return false
     },
   })
 
-  // Watch for completed files and invalidate transactions list
+  // Watch for file status changes and show notifications
   const previousDataRef = useRef<typeof query.data>(undefined)
 
   useEffect(() => {
@@ -159,17 +160,46 @@ export function useTransactionFiles() {
     const previousData = previousDataRef.current
 
     if (currentData && previousData) {
-      const currentCompleted = currentData.files.filter(
-        (f) => f.status === "completed"
-      )
-      const previousCompleted = previousData.files.filter(
-        (f) => f.status === "completed"
-      )
+      const currentFiles = currentData.files
+      const previousFiles = previousData.files
 
-      // If there are newly completed files, invalidate transactions
-      if (currentCompleted.length > previousCompleted.length) {
-        queryClient.invalidateQueries({ queryKey: transactionKeys.lists() })
-      }
+      // Check for newly completed files
+      currentFiles.forEach((currentFile) => {
+        const previousFile = previousFiles.find(
+          (f) => f.fileId === currentFile.fileId
+        )
+
+        if (previousFile) {
+          // File went from processing to completed
+          if (
+            (previousFile.status === "pending" ||
+              previousFile.status === "processing") &&
+            currentFile.status === "completed"
+          ) {
+            toast.success(
+              `File "${currentFile.originalName}" processed successfully`,
+              {
+                description: `${currentFile.transactionCount || 0} transactions extracted`,
+              }
+            )
+            // Invalidate transactions list to show new transactions
+            queryClient.invalidateQueries({ queryKey: transactionKeys.lists() })
+          }
+
+          // File went from processing to failed
+          if (
+            (previousFile.status === "pending" ||
+              previousFile.status === "processing") &&
+            currentFile.status === "failed"
+          ) {
+            toast.error(`Failed to process "${currentFile.originalName}"`, {
+              description:
+                currentFile.errorMessage ||
+                "An error occurred during processing",
+            })
+          }
+        }
+      })
     }
 
     previousDataRef.current = currentData

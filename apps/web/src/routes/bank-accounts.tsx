@@ -10,6 +10,12 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@workspace/ui/components/dropdown-menu"
+import {
   Table,
   TableBody,
   TableCell,
@@ -17,9 +23,12 @@ import {
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table"
+import { MoreVertical } from "lucide-react"
 import { useState } from "react"
 import { BankAccountDialog } from "../components/bank-account-dialog"
+import { CollaboratorsDialog } from "../components/collaborators-dialog"
 import { DashboardLayout } from "../components/dashboard-layout"
+import { UploadTransactionDialog } from "../components/upload-transaction-dialog"
 import { useBankAccounts } from "../hooks/use-bank-accounts"
 import { authService } from "../services/auth.service"
 
@@ -35,6 +44,14 @@ export const Route = createFileRoute("/bank-accounts")({
 function BankAccountsPage() {
   const { data: bankAccounts, isLoading, error } = useBankAccounts()
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
+  const [collaboratorsDialogOpen, setCollaboratorsDialogOpen] = useState(false)
+  const [selectedAccountId, setSelectedAccountId] = useState<
+    string | undefined
+  >(undefined)
+  const [selectedAccountName, setSelectedAccountName] = useState<
+    string | undefined
+  >(undefined)
 
   const getAccountTypeBadgeVariant = (type: string) => {
     return type === "Business" ? "default" : "secondary"
@@ -78,6 +95,19 @@ function BankAccountsPage() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         mode="create"
+      />
+
+      <UploadTransactionDialog
+        open={uploadDialogOpen}
+        onOpenChange={setUploadDialogOpen}
+        accountId={selectedAccountId}
+      />
+
+      <CollaboratorsDialog
+        open={collaboratorsDialogOpen}
+        onOpenChange={setCollaboratorsDialogOpen}
+        accountId={selectedAccountId || ""}
+        accountName={selectedAccountName}
       />
 
       <div className="mb-4 flex items-center justify-end">
@@ -124,12 +154,11 @@ function BankAccountsPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Account Name</TableHead>
-                      <TableHead>Account ID</TableHead>
                       <TableHead>Type</TableHead>
                       <TableHead>Sub Type</TableHead>
                       <TableHead>Currency</TableHead>
                       <TableHead>Description</TableHead>
-                      <TableHead>Created</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -137,9 +166,6 @@ function BankAccountsPage() {
                       <TableRow key={account._id}>
                         <TableCell className="font-medium">
                           {account.name}
-                        </TableCell>
-                        <TableCell className="font-mono text-sm">
-                          {account.bankAccountId}
                         </TableCell>
                         <TableCell>
                           <Badge
@@ -165,15 +191,38 @@ function BankAccountsPage() {
                             </span>
                           )}
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {new Date(account.createdAt).toLocaleDateString(
-                            "en-US",
-                            {
-                              month: "short",
-                              day: "numeric",
-                              year: "numeric",
-                            }
-                          )}
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 w-8 p-0"
+                              >
+                                <MoreVertical className="h-4 w-4" />
+                                <span className="sr-only">Open menu</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48">
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setSelectedAccountId(account._id)
+                                  setUploadDialogOpen(true)
+                                }}
+                              >
+                                Add Transactions
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setSelectedAccountId(account._id)
+                                  setSelectedAccountName(account.name)
+                                  setCollaboratorsDialogOpen(true)
+                                }}
+                              >
+                                Collaborators
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </TableCell>
                       </TableRow>
                     ))}

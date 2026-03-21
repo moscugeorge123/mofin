@@ -1,4 +1,3 @@
-import { Badge } from "@workspace/ui/components/badge"
 import { LoadingOverlay } from "@workspace/ui/components/loading-overlay"
 import {
   Table,
@@ -58,8 +57,6 @@ export function TransactionTable({
             <TableHead>Store</TableHead>
             <TableHead>Notes</TableHead>
             <TableHead>Category</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Type</TableHead>
             <TableHead className="text-right">Amount</TableHead>
           </TableRow>
         </TableHeader>
@@ -67,7 +64,7 @@ export function TransactionTable({
           {transactions.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={7}
+                colSpan={5}
                 className="text-center text-muted-foreground"
               >
                 No transactions found
@@ -115,28 +112,6 @@ export function TransactionTable({
                     )}
                   </TableCell>
                   <TableCell>{categoryName || "-"}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        transaction.status === "Booked"
-                          ? "default"
-                          : "secondary"
-                      }
-                    >
-                      {transaction.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        transaction.creditDebitIndicator === "Credit"
-                          ? "default"
-                          : "outline"
-                      }
-                    >
-                      {transaction.creditDebitIndicator}
-                    </Badge>
-                  </TableCell>
                   <TableCell
                     className={`text-right font-medium ${
                       transaction.creditDebitIndicator === "Credit"
