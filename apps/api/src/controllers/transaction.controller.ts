@@ -4,6 +4,7 @@ import { BankAccountModel } from '../database/models/bank-account';
 import { TransactionModel } from '../database/models/transaction';
 import { TransactionFileModel } from '../database/models/transaction-file';
 import { catchMongoValidation } from '../helpers/catch-mongo-validation';
+import { computeFileHash } from '../helpers/file-hash';
 import { ChatGPTTransactionService } from '../services/chatgpt-transaction.service';
 
 export class TransactionController {
@@ -342,6 +343,44 @@ export class TransactionController {
         return;
       }
 
+      // Compute file hash for deduplication
+      const fileHash = await computeFileHash(req.file.path);
+
+      // Check if this file has been processed before
+      const existingFile = await TransactionFileModel.findByHash(
+        fileHash,
+        new mongoose.Types.ObjectId(userId),
+      );
+
+      if (existingFile) {
+        // File already exists
+        if (existingFile.status === 'completed') {
+          // File was already successfully processed
+          res.status(200).json({
+            message: 'File already processed, returning cached results',
+            fileId: existingFile._id,
+            status: existingFile.status,
+            transactionCount: existingFile.transactions.length,
+            transactions: existingFile.transactions,
+            cached: true,
+          });
+          return;
+        } else if (
+          existingFile.status === 'pending' ||
+          existingFile.status === 'processing'
+        ) {
+          // File is currently being processed
+          res.status(202).json({
+            message: 'File is already being processed',
+            fileId: existingFile._id,
+            status: existingFile.status,
+            cached: true,
+          });
+          return;
+        }
+        // If status is 'failed', we'll create a new record and retry
+      }
+
       // Create transaction file record
       const transactionFile = new TransactionFileModel({
         userId: new mongoose.Types.ObjectId(userId),
@@ -349,77 +388,179 @@ export class TransactionController {
         originalName: req.file.originalname,
         mimeType: req.file.mimetype,
         fileSize: req.file.size,
+        fileHash,
         status: 'pending',
       });
 
       await transactionFile.save();
 
-      try {
-        // Mark as processing
-        await transactionFile.markAsProcessing();
+      // Return file ID immediately to the requester
+      res.status(202).json({
+        message: 'File uploaded successfully and is being processed',
+        fileId: transactionFile._id,
+        status: transactionFile.status,
+      });
 
-        // Extract transactions using ChatGPT
-        const chatGPTService = new ChatGPTTransactionService();
-        const extractedData = await chatGPTService.extractTransactions(
-          req.file.path,
-          req.file.mimetype,
+      // Process file in background (don't await)
+      TransactionController.processFileInBackground(
+        transactionFile._id.toString(),
+        userId,
+        accountId,
+      ).catch((error) => {
+        console.error(
+          `Background processing failed for file ${transactionFile._id}:`,
+          error,
         );
-
-        // Save extracted data
-        transactionFile.extractedData = extractedData;
-        await transactionFile.save();
-
-        // Insert transactions into database
-        const insertedTransactions = [];
-        const transactionIds: mongoose.Types.ObjectId[] = [];
-
-        for (const txData of extractedData.transactions) {
-          const transaction = new TransactionModel({
-            userId: new mongoose.Types.ObjectId(userId),
-            accountId: new mongoose.Types.ObjectId(accountId),
-            amount: {
-              sum: txData.amount.sum,
-              currency: txData.amount.currency,
-            },
-            notes: txData.notes || '',
-            state: txData.state,
-            location: txData.location,
-            store: txData.store,
-            creditDebitIndicator: txData.creditDebitIndicator,
-            status: txData.status || 'Booked',
-            date: new Date(txData.date),
-            tags: [],
-          });
-
-          await transaction.save();
-          await transaction.populate(['accountId', 'category', 'tags']);
-
-          insertedTransactions.push(transaction);
-          transactionIds.push(transaction._id as mongoose.Types.ObjectId);
-        }
-
-        // Mark file as completed
-        await transactionFile.markAsCompleted(transactionIds);
-
-        res.status(201).json({
-          message: 'Transactions extracted and saved successfully',
-          file: {
-            id: transactionFile._id,
-            originalName: transactionFile.originalName,
-            status: transactionFile.status,
-          },
-          transactions: insertedTransactions,
-          count: insertedTransactions.length,
-        });
-      } catch (error: any) {
-        // Mark file as failed
-        await transactionFile.markAsFailed(error.message);
-        throw error;
-      }
+      });
     } catch (error: any) {
-      console.error('Error extracting transactions from file:', error);
+      console.error('Error uploading transaction file:', error);
       res.status(500).json({
-        error: 'Failed to extract transactions from file',
+        error: 'Failed to upload transaction file',
+        details: error.message,
+      });
+    }
+  }
+
+  // Process file extraction in background
+  private static async processFileInBackground(
+    fileId: string,
+    userId: string,
+    accountId: string,
+  ): Promise<void> {
+    try {
+      const transactionFile = await TransactionFileModel.findById(fileId);
+      if (!transactionFile) {
+        console.error(`Transaction file ${fileId} not found`);
+        return;
+      }
+
+      // Mark as processing
+      await transactionFile.markAsProcessing();
+
+      // Extract transactions using ChatGPT
+      const chatGPTService = new ChatGPTTransactionService();
+      const extractedData = await chatGPTService.extractTransactions(
+        transactionFile.filePath,
+        transactionFile.mimeType,
+      );
+
+      // Save extracted data
+      transactionFile.extractedData = extractedData;
+      await transactionFile.save();
+
+      // Insert transactions into database
+      const transactionIds: mongoose.Types.ObjectId[] = [];
+
+      for (const txData of extractedData.transactions) {
+        const transaction = new TransactionModel({
+          userId: new mongoose.Types.ObjectId(userId),
+          accountId: new mongoose.Types.ObjectId(accountId),
+          amount: {
+            sum: txData.amount.sum,
+            currency: txData.amount.currency,
+          },
+          notes: txData.notes || '',
+          state: txData.state,
+          location: txData.location,
+          store: txData.store,
+          creditDebitIndicator: txData.creditDebitIndicator,
+          status: txData.status || 'Booked',
+          date: new Date(txData.date),
+          tags: [],
+        });
+
+        await transaction.save();
+        transactionIds.push(transaction._id as mongoose.Types.ObjectId);
+      }
+
+      // Mark file as completed
+      await transactionFile.markAsCompleted(transactionIds);
+
+      console.log(
+        `Successfully processed file ${fileId}, extracted ${transactionIds.length} transactions`,
+      );
+    } catch (error: any) {
+      console.error(`Error processing file ${fileId}:`, error);
+
+      // Mark file as failed
+      const transactionFile = await TransactionFileModel.findById(fileId);
+      if (transactionFile) {
+        await transactionFile.markAsFailed(error.message);
+      }
+    }
+  }
+
+  // Get status of uploaded transaction file
+  static async getFileStatus(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = (req as any).user.id;
+      const { fileId } = req.params;
+
+      const transactionFile =
+        await TransactionFileModel.findById(fileId).populate('transactions');
+
+      if (!transactionFile) {
+        res.status(404).json({ error: 'Transaction file not found' });
+        return;
+      }
+
+      // Verify user owns this file
+      if (!transactionFile.userId.equals(new mongoose.Types.ObjectId(userId))) {
+        res.status(403).json({ error: 'Access denied' });
+        return;
+      }
+
+      res.json({
+        fileId: transactionFile._id,
+        originalName: transactionFile.originalName,
+        status: transactionFile.status,
+        errorMessage: transactionFile.errorMessage,
+        transactionCount: transactionFile.transactions.length,
+        transactions: transactionFile.transactions,
+        createdAt: transactionFile.createdAt,
+        updatedAt: transactionFile.updatedAt,
+      });
+    } catch (error: any) {
+      console.error('Error fetching file status:', error);
+      res.status(500).json({
+        error: 'Failed to fetch file status',
+        details: error.message,
+      });
+    }
+  }
+
+  // Get all transaction files for the authenticated user
+  static async getAllFiles(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = (req as any).user.id;
+      const { status } = req.query;
+
+      let query: any = { userId: new mongoose.Types.ObjectId(userId) };
+
+      if (status) {
+        query.status = status;
+      }
+
+      const files = await TransactionFileModel.find(query)
+        .sort({ createdAt: -1 })
+        .select('-extractedData'); // Exclude raw extracted data for list view
+
+      res.json({
+        files: files.map((file) => ({
+          fileId: file._id,
+          originalName: file.originalName,
+          status: file.status,
+          errorMessage: file.errorMessage,
+          transactionCount: file.transactions.length,
+          fileSize: file.fileSize,
+          createdAt: file.createdAt,
+          updatedAt: file.updatedAt,
+        })),
+      });
+    } catch (error: any) {
+      console.error('Error fetching transaction files:', error);
+      res.status(500).json({
+        error: 'Failed to fetch transaction files',
         details: error.message,
       });
     }

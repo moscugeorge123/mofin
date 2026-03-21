@@ -28,9 +28,13 @@ import {
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useBankAccounts } from "../hooks/use-bank-accounts"
-import { useUploadTransactionFile } from "../hooks/use-transactions"
+import {
+  useTransactionFiles,
+  useUploadTransactionFile,
+} from "../hooks/use-transactions"
+import { transactionsApi } from "../services/transactions.service"
 import type { Transaction } from "../types/transaction"
 
 interface UploadTransactionDialogProps {
@@ -51,9 +55,47 @@ export function UploadTransactionDialog({
     Transaction[]
   >([])
   const [error, setError] = useState<string>("")
+  const [fileId, setFileId] = useState<string | null>(null)
+  const [isCached, setIsCached] = useState(false)
+  const [processingMessage, setProcessingMessage] = useState("")
+  const fetchedFileRef = useRef<string | null>(null)
 
   const { data: bankAccounts, isLoading: loadingAccounts } = useBankAccounts()
   const uploadMutation = useUploadTransactionFile()
+
+  // Use global polling data instead of individual polling
+  const { data: filesData } = useTransactionFiles()
+
+  // Effect to watch for file status changes in global polling
+  useEffect(() => {
+    if (!fileId || !filesData?.files) return
+
+    const currentFile = filesData.files.find((f) => f.fileId === fileId)
+    if (!currentFile) return
+
+    if (
+      currentFile.status === "completed" &&
+      fetchedFileRef.current !== fileId
+    ) {
+      // Fetch full file details to get transactions
+      fetchedFileRef.current = fileId // Mark as fetched to prevent duplicate fetches
+      transactionsApi
+        .getFileStatus(fileId)
+        .then((fileDetails) => {
+          setUploadedTransactions(fileDetails.transactions)
+          setStep("result")
+        })
+        .catch((err) => {
+          console.error("Error fetching file details:", err)
+          // Still show success but without transaction details
+          setStep("result")
+          setUploadedTransactions([])
+        })
+    } else if (currentFile.status === "failed") {
+      setError(currentFile.errorMessage || "Processing failed")
+      setStep("result")
+    }
+  }, [fileId, filesData])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -65,7 +107,6 @@ export function UploadTransactionDialog({
   const handleUpload = async () => {
     if (!selectedFile || !selectedAccountId) return
 
-    setStep("processing")
     setError("")
 
     try {
@@ -74,10 +115,28 @@ export function UploadTransactionDialog({
         accountId: selectedAccountId,
       })
 
-      setUploadedTransactions(result.transactions)
-      setStep("result")
+      setFileId(result.fileId)
+      setIsCached(result.cached || false)
+
+      if (result.status === "completed" && result.transactions) {
+        // File was already processed (cached)
+        setUploadedTransactions(result.transactions)
+        setStep("result")
+      } else {
+        // File is being processed (new or cached but still processing)
+        setStep("processing")
+        if (result.cached) {
+          setProcessingMessage(
+            "This file is already being processed. You can close this dialog and check back later."
+          )
+        } else {
+          setProcessingMessage(
+            "Your file is being processed. You can close this dialog - transactions will appear when ready."
+          )
+        }
+      }
     } catch (err: any) {
-      setError(err.message || "Failed to upload and process the file")
+      setError(err.message || "Failed to upload the file")
       setStep("result")
     }
   }
@@ -89,6 +148,10 @@ export function UploadTransactionDialog({
     setSelectedFile(null)
     setUploadedTransactions([])
     setError("")
+    setFileId(null)
+    setIsCached(false)
+    setProcessingMessage("")
+    fetchedFileRef.current = null
     onOpenChange(false)
   }
 
@@ -169,12 +232,23 @@ export function UploadTransactionDialog({
           {step === "processing" && (
             <div className="flex flex-col items-center justify-center space-y-4 py-8">
               <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-primary"></div>
-              <p className="text-sm text-muted-foreground">
-                Processing your file and extracting transactions...
+              <p className="text-sm font-medium text-muted-foreground">
+                {processingMessage}
               </p>
-              <p className="text-xs text-muted-foreground">
-                This may take a few moments
-              </p>
+              {fileId && filesData?.files && (
+                <p className="text-xs text-muted-foreground">
+                  Status:{" "}
+                  {filesData.files.find((f) => f.fileId === fileId)?.status ||
+                    "checking..."}
+                </p>
+              )}
+              <Alert className="mt-4">
+                <AlertDescription className="text-xs">
+                  You can close this dialog. Processing will continue in the
+                  background, and transactions will appear automatically when
+                  complete.
+                </AlertDescription>
+              </Alert>
             </div>
           )}
 
@@ -190,8 +264,9 @@ export function UploadTransactionDialog({
                 <div className="space-y-4">
                   <Alert className="border-green-200 bg-green-50 text-green-800">
                     <AlertDescription>
-                      Successfully uploaded {uploadedTransactions.length}{" "}
-                      transaction(s)
+                      {isCached
+                        ? `File already processed! Found ${uploadedTransactions.length} cached transaction(s)`
+                        : `Successfully processed ${uploadedTransactions.length} transaction(s)`}
                     </AlertDescription>
                   </Alert>
 
@@ -284,7 +359,11 @@ export function UploadTransactionDialog({
             </>
           )}
 
-          {step === "processing" && <Button disabled>Processing...</Button>}
+          {step === "processing" && (
+            <Button onClick={handleClose}>
+              Close (Processing continues in background)
+            </Button>
+          )}
 
           {step === "result" && <Button onClick={handleClose}>Close</Button>}
         </DialogFooter>

@@ -15,6 +15,12 @@ router.post(
   TransactionController.extractFromFile,
 );
 
+// Get all transaction files (with optional status filter)
+router.get('/files', TransactionController.getAllFiles);
+
+// Get status of a specific transaction file
+router.get('/files/:fileId', TransactionController.getFileStatus);
+
 // Get account balance
 router.get(
   '/account/:accountId/balance',

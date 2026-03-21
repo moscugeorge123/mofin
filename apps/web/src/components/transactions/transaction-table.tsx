@@ -21,6 +21,7 @@ interface TransactionTableProps {
   isLoading: boolean
   isFetching: boolean
   error: Error | null
+  onTransactionClick?: (transaction: Transaction) => void
 }
 
 export function TransactionTable({
@@ -28,6 +29,7 @@ export function TransactionTable({
   isLoading,
   isFetching,
   error,
+  onTransactionClick,
 }: TransactionTableProps) {
   if (error) {
     return (
@@ -79,7 +81,11 @@ export function TransactionTable({
                   : transaction.category?.name
 
               return (
-                <TableRow key={transaction._id}>
+                <TableRow
+                  key={transaction._id}
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => onTransactionClick?.(transaction)}
+                >
                   <TableCell className="font-medium">
                     {new Date(transaction.date).toLocaleDateString("en-US", {
                       month: "short",

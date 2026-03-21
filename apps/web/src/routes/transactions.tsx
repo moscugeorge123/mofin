@@ -10,14 +10,15 @@ import {
 import { useEffect, useState } from "react"
 import type { DateRange } from "react-day-picker"
 import { DashboardLayout } from "../components/dashboard-layout"
+import { TransactionDetailsSheet } from "../components/transactions/transaction-details-sheet"
 import { TransactionFilters } from "../components/transactions/transaction-filters"
 import { TransactionPagination } from "../components/transactions/transaction-pagination"
 import { TransactionTable } from "../components/transactions/transaction-table"
 import { UploadTransactionDialog } from "../components/upload-transaction-dialog"
 import { useBankAccounts } from "../hooks/use-bank-accounts"
-import { useTransactions } from "../hooks/use-transactions"
+import { useTransactionFiles, useTransactions } from "../hooks/use-transactions"
 import { authService } from "../services/auth.service"
-import type { TransactionsQueryParams } from "../types/transaction"
+import type { Transaction, TransactionsQueryParams } from "../types/transaction"
 
 export const Route = createFileRoute("/transactions")({
   beforeLoad: ({ location }) => {
@@ -30,9 +31,15 @@ export const Route = createFileRoute("/transactions")({
 
 function TransactionsPage() {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
+  const [selectedTransaction, setSelectedTransaction] =
+    useState<Transaction | null>(null)
+  const [detailsSheetOpen, setDetailsSheetOpen] = useState(false)
 
   // Fetch bank accounts for filter
   const { data: accounts = [], isLoading: accountsLoading } = useBankAccounts()
+
+  // Background polling for file processing status
+  useTransactionFiles()
 
   // Filter states
   const [accountFilter, setAccountFilter] = useState<string>("all")
@@ -140,6 +147,11 @@ function TransactionsPage() {
     setMaxAmount("")
   }
 
+  const handleTransactionClick = (transaction: Transaction) => {
+    setSelectedTransaction(transaction)
+    setDetailsSheetOpen(true)
+  }
+
   return (
     <DashboardLayout
       currentPath="/transactions"
@@ -187,6 +199,7 @@ function TransactionsPage() {
               isLoading={isLoading}
               isFetching={isFetching}
               error={error}
+              onTransactionClick={handleTransactionClick}
             />
 
             {pagination && pagination.totalPages > 1 && (
@@ -203,6 +216,12 @@ function TransactionsPage() {
       <UploadTransactionDialog
         open={uploadDialogOpen}
         onOpenChange={handleDialogClose}
+      />
+
+      <TransactionDetailsSheet
+        open={detailsSheetOpen}
+        onOpenChange={setDetailsSheetOpen}
+        transaction={selectedTransaction}
       />
     </DashboardLayout>
   )

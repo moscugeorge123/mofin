@@ -9,6 +9,7 @@ export interface ITransactionFile {
   originalName: string;
   mimeType: string;
   fileSize: number;
+  fileHash: string; // SHA-256 hash for deduplication
 
   // Processing status
   status: 'pending' | 'processing' | 'completed' | 'failed';
@@ -38,6 +39,10 @@ export interface TransactionFileModel extends Model<
     userId: mongoose.Types.ObjectId,
   ): Promise<TransactionFileDocument[]>;
   findPending(): Promise<TransactionFileDocument[]>;
+  findByHash(
+    fileHash: string,
+    userId: mongoose.Types.ObjectId,
+  ): Promise<TransactionFileDocument | null>;
 }
 
 export type TransactionFileDocument = Document<unknown, {}, ITransactionFile> &
@@ -77,6 +82,12 @@ const transactionFileSchema = new Schema<
       type: Number,
       required: [true, 'File size is required'],
       min: [0, 'File size must be positive'],
+    },
+    fileHash: {
+      type: String,
+      required: [true, 'File hash is required'],
+      trim: true,
+      index: true,
     },
 
     // Processing status
@@ -156,9 +167,17 @@ transactionFileSchema.statics.findPending = function (): Promise<
   return this.find({ status: 'pending' }).sort({ createdAt: 1 }).exec();
 };
 
+transactionFileSchema.statics.findByHash = function (
+  fileHash: string,
+  userId: mongoose.Types.ObjectId,
+): Promise<TransactionFileDocument | null> {
+  return this.findOne({ fileHash, userId }).populate('transactions').exec();
+};
+
 // Create Indexes
 transactionFileSchema.index({ userId: 1, createdAt: -1 });
 transactionFileSchema.index({ status: 1, createdAt: 1 });
+transactionFileSchema.index({ fileHash: 1, userId: 1 });
 
 export const TransactionFileModel = mongoose.model<
   ITransactionFile,

@@ -61,14 +61,49 @@ export const transactionsApi = {
     accountId: string
   ): Promise<{
     message: string
-    file: { id: string; originalName: string; status: string }
-    transactions: Transaction[]
-    count: number
+    fileId: string
+    status: string
+    transactionCount?: number
+    transactions?: Transaction[]
+    cached?: boolean
   }> => {
     const formData = new FormData()
     formData.append("file", file)
     formData.append("accountId", accountId)
 
     return apiClient.post("/api/transactions/extract", formData)
+  },
+
+  getFileStatus: async (
+    fileId: string
+  ): Promise<{
+    fileId: string
+    originalName: string
+    status: string
+    errorMessage?: string
+    transactionCount: number
+    transactions: Transaction[]
+    createdAt: string
+    updatedAt: string
+  }> => {
+    return apiClient.get(`/api/transactions/files/${fileId}`)
+  },
+
+  getAllFiles: async (
+    status?: string
+  ): Promise<{
+    files: Array<{
+      fileId: string
+      originalName: string
+      status: string
+      errorMessage?: string
+      transactionCount: number
+      fileSize: number
+      createdAt: string
+      updatedAt: string
+    }>
+  }> => {
+    const queryParams = status ? `?status=${status}` : ""
+    return apiClient.get(`/api/transactions/files${queryParams}`)
   },
 }
