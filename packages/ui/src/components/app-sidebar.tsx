@@ -7,7 +7,13 @@ import {
   SidebarContent,
   SidebarFooter,
 } from "@workspace/ui/components/sidebar"
-import { LayoutDashboardIcon, ReceiptIcon, WalletIcon } from "lucide-react"
+import {
+  FileTextIcon,
+  FoldersIcon,
+  LayoutDashboardIcon,
+  ReceiptIcon,
+  WalletIcon,
+} from "lucide-react"
 
 interface User {
   name: string
@@ -19,11 +25,13 @@ export function AppSidebar({
   currentPath,
   user,
   onLogout,
+  hasProcessingFiles,
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
   currentPath?: string
   user?: User | null
   onLogout?: () => void
+  hasProcessingFiles?: boolean
 }) {
   const data = {
     user: {
@@ -50,6 +58,24 @@ export function AppSidebar({
         icon: <ReceiptIcon />,
         isActive: currentPath === "/transactions",
       },
+      {
+        title: "Groups",
+        url: "/groups",
+        icon: <FoldersIcon />,
+        isActive: currentPath === "/groups",
+      },
+    ],
+    beforeUserMenu: [
+      {
+        title: "Files",
+        url: "/files",
+        icon: <FileTextIcon />,
+        isActive: currentPath === "/files",
+        isLoading: hasProcessingFiles,
+        customTooltip: hasProcessingFiles
+          ? "Files - Processing files..."
+          : "Files",
+      },
     ],
   }
 
@@ -59,6 +85,7 @@ export function AppSidebar({
         <NavMain items={data.navMain} />
       </SidebarContent>
       <SidebarFooter>
+        <NavMain items={data.beforeUserMenu} />
         <NavUser user={data.user} onLogout={onLogout} />
       </SidebarFooter>
     </Sidebar>

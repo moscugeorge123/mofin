@@ -68,3 +68,15 @@ export interface PaginatedTransactionsResponse {
   data: Transaction[]
   pagination: PaginationMeta
 }
+
+export interface TransactionFile {
+  fileId: string
+  originalName: string
+  status: "pending" | "processing" | "completed" | "failed"
+  errorMessage?: string
+  transactionCount: number
+  fileSize: number
+  accountId: BankAccount
+  createdAt: string
+  updatedAt: string
+}

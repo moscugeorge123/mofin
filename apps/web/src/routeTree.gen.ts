@@ -12,6 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TransactionsRouteImport } from './routes/transactions'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as GroupsRouteImport } from './routes/groups'
+import { Route as FilesRouteImport } from './routes/files'
 import { Route as BankAccountsRouteImport } from './routes/bank-accounts'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -30,6 +32,16 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GroupsRoute = GroupsRouteImport.update({
+  id: '/groups',
+  path: '/groups',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FilesRoute = FilesRouteImport.update({
+  id: '/files',
+  path: '/files',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BankAccountsRoute = BankAccountsRouteImport.update({
   id: '/bank-accounts',
   path: '/bank-accounts',
@@ -44,6 +56,8 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/bank-accounts': typeof BankAccountsRoute
+  '/files': typeof FilesRoute
+  '/groups': typeof GroupsRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/transactions': typeof TransactionsRoute
@@ -51,6 +65,8 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/bank-accounts': typeof BankAccountsRoute
+  '/files': typeof FilesRoute
+  '/groups': typeof GroupsRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/transactions': typeof TransactionsRoute
@@ -59,19 +75,37 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/bank-accounts': typeof BankAccountsRoute
+  '/files': typeof FilesRoute
+  '/groups': typeof GroupsRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/transactions': typeof TransactionsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/bank-accounts' | '/login' | '/register' | '/transactions'
+  fullPaths:
+    | '/'
+    | '/bank-accounts'
+    | '/files'
+    | '/groups'
+    | '/login'
+    | '/register'
+    | '/transactions'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/bank-accounts' | '/login' | '/register' | '/transactions'
+  to:
+    | '/'
+    | '/bank-accounts'
+    | '/files'
+    | '/groups'
+    | '/login'
+    | '/register'
+    | '/transactions'
   id:
     | '__root__'
     | '/'
     | '/bank-accounts'
+    | '/files'
+    | '/groups'
     | '/login'
     | '/register'
     | '/transactions'
@@ -80,6 +114,8 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   BankAccountsRoute: typeof BankAccountsRoute
+  FilesRoute: typeof FilesRoute
+  GroupsRoute: typeof GroupsRoute
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
   TransactionsRoute: typeof TransactionsRoute
@@ -108,6 +144,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/groups': {
+      id: '/groups'
+      path: '/groups'
+      fullPath: '/groups'
+      preLoaderRoute: typeof GroupsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/files': {
+      id: '/files'
+      path: '/files'
+      fullPath: '/files'
+      preLoaderRoute: typeof FilesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/bank-accounts': {
       id: '/bank-accounts'
       path: '/bank-accounts'
@@ -128,6 +178,8 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   BankAccountsRoute: BankAccountsRoute,
+  FilesRoute: FilesRoute,
+  GroupsRoute: GroupsRoute,
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,
   TransactionsRoute: TransactionsRoute,

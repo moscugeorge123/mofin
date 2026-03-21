@@ -24,6 +24,7 @@ export interface IBankAccountMethods {
   grantAccess(userId: mongoose.Types.ObjectId): Promise<void>;
   revokeAccess(userId: mongoose.Types.ObjectId): Promise<void>;
   hasAccess(userId: mongoose.Types.ObjectId): boolean;
+  isOwner(userId: mongoose.Types.ObjectId): boolean;
 }
 
 export interface BankAccountModel extends Model<
@@ -133,6 +134,11 @@ const bankAccountSchema = new Schema<
           this.owner.equals(userId) ||
           this.accessGivenTo.some((id) => id.equals(userId))
         );
+      },
+
+      // Check if user is the owner
+      isOwner(userId: mongoose.Types.ObjectId): boolean {
+        return this.owner.equals(userId);
       },
     },
     statics: {

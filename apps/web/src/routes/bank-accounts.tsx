@@ -30,6 +30,7 @@ import { CollaboratorsDialog } from "../components/collaborators-dialog"
 import { DashboardLayout } from "../components/dashboard-layout"
 import { UploadTransactionDialog } from "../components/upload-transaction-dialog"
 import { useBankAccounts } from "../hooks/use-bank-accounts"
+import { useUser } from "../hooks/use-user"
 import { authService } from "../services/auth.service"
 
 export const Route = createFileRoute("/bank-accounts")({
@@ -43,6 +44,7 @@ export const Route = createFileRoute("/bank-accounts")({
 
 function BankAccountsPage() {
   const { data: bankAccounts, isLoading, error } = useBankAccounts()
+  const user = useUser()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
   const [collaboratorsDialogOpen, setCollaboratorsDialogOpen] = useState(false)
@@ -154,6 +156,7 @@ function BankAccountsPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Account Name</TableHead>
+                      <TableHead>Access</TableHead>
                       <TableHead>Type</TableHead>
                       <TableHead>Sub Type</TableHead>
                       <TableHead>Currency</TableHead>
@@ -162,70 +165,89 @@ function BankAccountsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {bankAccounts.map((account) => (
-                      <TableRow key={account._id}>
-                        <TableCell className="font-medium">
-                          {account.name}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={getAccountTypeBadgeVariant(account.type)}
-                          >
-                            {account.type}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={getSubTypeBadgeVariant(account.subType)}
-                          >
-                            {formatSubType(account.subType)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="font-semibold">
-                          {account.currency}
-                        </TableCell>
-                        <TableCell>
-                          {account.description || (
-                            <span className="text-muted-foreground italic">
-                              No description
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-8 w-8 p-0"
-                              >
-                                <MoreVertical className="h-4 w-4" />
-                                <span className="sr-only">Open menu</span>
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-48">
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  setSelectedAccountId(account._id)
-                                  setUploadDialogOpen(true)
-                                }}
-                              >
-                                Add Transactions
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  setSelectedAccountId(account._id)
-                                  setSelectedAccountName(account.name)
-                                  setCollaboratorsDialogOpen(true)
-                                }}
-                              >
-                                Collaborators
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {bankAccounts.map((account) => {
+                      const isOwner = user && account.owner === user.id
+                      return (
+                        <TableRow key={account._id}>
+                          <TableCell className="font-medium">
+                            {account.name}
+                          </TableCell>
+                          <TableCell>
+                            {isOwner ? (
+                              <Badge variant="default">Owner</Badge>
+                            ) : (
+                              <Badge variant="outline">Collaborator</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={getAccountTypeBadgeVariant(account.type)}
+                            >
+                              {account.type}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={getSubTypeBadgeVariant(account.subType)}
+                            >
+                              {formatSubType(account.subType)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="font-semibold">
+                            {account.currency}
+                          </TableCell>
+                          <TableCell>
+                            {account.description || (
+                              <span className="text-muted-foreground italic">
+                                No description
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {user && account.owner === user.id ? (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    <MoreVertical className="h-4 w-4" />
+                                    <span className="sr-only">Open menu</span>
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent
+                                  align="end"
+                                  className="w-48"
+                                >
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setSelectedAccountId(account._id)
+                                      setUploadDialogOpen(true)
+                                    }}
+                                  >
+                                    Add Transactions
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setSelectedAccountId(account._id)
+                                      setSelectedAccountName(account.name)
+                                      setCollaboratorsDialogOpen(true)
+                                    }}
+                                  >
+                                    Collaborators
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">
+                                View only
+                              </span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
                   </TableBody>
                 </Table>
               )}

@@ -15,6 +15,7 @@ import {
 } from "@workspace/ui/components/sidebar"
 import { TooltipProvider } from "@workspace/ui/components/tooltip"
 import { useLogout } from "../hooks/use-auth"
+import { useTransactionFiles } from "../hooks/use-transactions"
 import { useUser } from "../hooks/use-user"
 
 export type BreadcrumbItem = {
@@ -36,6 +37,8 @@ export function DashboardLayout({
 }: DashboardLayoutProps) {
   const user = useUser()
   const logout = useLogout()
+  const { data: filesData } = useTransactionFiles()
+
   const sidebarUser = user
     ? {
         name: `${user.firstName} ${user.lastName}`,
@@ -43,6 +46,11 @@ export function DashboardLayout({
         avatar: "/avatars/shadcn.jpg",
       }
     : null
+
+  const hasProcessingFiles =
+    filesData?.files?.some(
+      (file) => file.status === "pending" || file.status === "processing"
+    ) || false
 
   const handleLogout = () => {
     logout.mutate()
@@ -55,6 +63,7 @@ export function DashboardLayout({
           currentPath={currentPath}
           user={sidebarUser}
           onLogout={handleLogout}
+          hasProcessingFiles={hasProcessingFiles}
         />
         <SidebarInset className="flex flex-col overflow-hidden">
           <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">

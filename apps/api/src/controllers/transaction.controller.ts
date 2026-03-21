@@ -35,6 +35,14 @@ export class TransactionController {
         return;
       }
 
+      // Only owner can create transactions
+      if (!account.isOwner(new mongoose.Types.ObjectId(userId))) {
+        res
+          .status(403)
+          .json({ error: 'Only the account owner can create transactions' });
+        return;
+      }
+
       const transaction = new TransactionModel({
         userId,
         bankTransactionId,
@@ -195,6 +203,14 @@ export class TransactionController {
         return;
       }
 
+      // Only owner can update transactions
+      if (!account.isOwner(new mongoose.Types.ObjectId(userId))) {
+        res
+          .status(403)
+          .json({ error: 'Only the account owner can update transactions' });
+        return;
+      }
+
       // Prevent changing userId and accountId
       delete updates.userId;
       delete updates.accountId;
@@ -229,6 +245,14 @@ export class TransactionController {
         return;
       }
 
+      // Only owner can delete transactions
+      if (!account.isOwner(new mongoose.Types.ObjectId(userId))) {
+        res
+          .status(403)
+          .json({ error: 'Only the account owner can delete transactions' });
+        return;
+      }
+
       await TransactionModel.findByIdAndDelete(id);
       res.json({ message: 'Transaction deleted successfully' });
     } catch (error: any) {
@@ -254,6 +278,14 @@ export class TransactionController {
       const account = await BankAccountModel.findById(transaction.accountId);
       if (!account || !account.hasAccess(new mongoose.Types.ObjectId(userId))) {
         res.status(403).json({ error: 'Access denied' });
+        return;
+      }
+
+      // Only owner can add tags
+      if (!account.isOwner(new mongoose.Types.ObjectId(userId))) {
+        res
+          .status(403)
+          .json({ error: 'Only the account owner can modify tags' });
         return;
       }
 
@@ -284,6 +316,14 @@ export class TransactionController {
       const account = await BankAccountModel.findById(transaction.accountId);
       if (!account || !account.hasAccess(new mongoose.Types.ObjectId(userId))) {
         res.status(403).json({ error: 'Access denied' });
+        return;
+      }
+
+      // Only owner can remove tags
+      if (!account.isOwner(new mongoose.Types.ObjectId(userId))) {
+        res
+          .status(403)
+          .json({ error: 'Only the account owner can modify tags' });
         return;
       }
 
@@ -400,6 +440,7 @@ export class TransactionController {
       // Create transaction file record
       const transactionFile = new TransactionFileModel({
         userId: new mongoose.Types.ObjectId(userId),
+        accountId: new mongoose.Types.ObjectId(accountId),
         filePath: req.file.path,
         originalName: req.file.originalname,
         mimeType: req.file.mimetype,
@@ -512,8 +553,9 @@ export class TransactionController {
       const userId = (req as any).user.id;
       const { fileId } = req.params;
 
-      const transactionFile =
-        await TransactionFileModel.findById(fileId).populate('transactions');
+      const transactionFile = await TransactionFileModel.findById(fileId)
+        .populate('transactions')
+        .populate('accountId');
 
       if (!transactionFile) {
         res.status(404).json({ error: 'Transaction file not found' });
@@ -533,6 +575,7 @@ export class TransactionController {
         errorMessage: transactionFile.errorMessage,
         transactionCount: transactionFile.transactions.length,
         transactions: transactionFile.transactions,
+        accountId: transactionFile.accountId,
         createdAt: transactionFile.createdAt,
         updatedAt: transactionFile.updatedAt,
       });
@@ -558,6 +601,7 @@ export class TransactionController {
       }
 
       const files = await TransactionFileModel.find(query)
+        .populate('accountId')
         .sort({ createdAt: -1 })
         .select('-extractedData'); // Exclude raw extracted data for list view
 
@@ -569,6 +613,7 @@ export class TransactionController {
           errorMessage: file.errorMessage,
           transactionCount: file.transactions.length,
           fileSize: file.fileSize,
+          accountId: file.accountId,
           createdAt: file.createdAt,
           updatedAt: file.updatedAt,
         })),

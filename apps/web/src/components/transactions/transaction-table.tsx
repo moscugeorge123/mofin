@@ -116,10 +116,10 @@ export function TransactionTable({
                     className={`text-right font-medium ${
                       transaction.creditDebitIndicator === "Credit"
                         ? "text-green-600"
-                        : "text-red-600"
+                        : ""
                     }`}
                   >
-                    {transaction.creditDebitIndicator === "Credit" ? "+" : "-"}
+                    {transaction.creditDebitIndicator === "Credit" ? "+" : ""}
                     {Math.abs(transaction.amount.sum).toFixed(2)}{" "}
                     {transaction.amount.currency}
                   </TableCell>

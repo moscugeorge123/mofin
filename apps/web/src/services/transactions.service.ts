@@ -2,6 +2,7 @@ import { apiClient } from "../lib/api-client"
 import type {
   PaginatedTransactionsResponse,
   Transaction,
+  TransactionFile,
   TransactionsQueryParams,
 } from "../types/transaction"
 
@@ -83,6 +84,7 @@ export const transactionsApi = {
     errorMessage?: string
     transactionCount: number
     transactions: Transaction[]
+    accountId: any
     createdAt: string
     updatedAt: string
   }> => {
@@ -92,16 +94,7 @@ export const transactionsApi = {
   getAllFiles: async (
     status?: string
   ): Promise<{
-    files: Array<{
-      fileId: string
-      originalName: string
-      status: string
-      errorMessage?: string
-      transactionCount: number
-      fileSize: number
-      createdAt: string
-      updatedAt: string
-    }>
+    files: TransactionFile[]
   }> => {
     const queryParams = status ? `?status=${status}` : ""
     return apiClient.get(`/api/transactions/files${queryParams}`)

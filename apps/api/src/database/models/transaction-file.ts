@@ -4,6 +4,9 @@ export interface ITransactionFile {
   // User reference
   userId: mongoose.Types.ObjectId;
 
+  // Bank account reference
+  accountId: mongoose.Types.ObjectId;
+
   // File information
   filePath: string;
   originalName: string;
@@ -59,6 +62,13 @@ const transactionFileSchema = new Schema<
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: [true, 'User ID is required'],
+      index: true,
+    },
+
+    accountId: {
+      type: Schema.Types.ObjectId,
+      ref: 'BankAccount',
+      required: false,
       index: true,
     },
 
