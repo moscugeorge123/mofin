@@ -1,5 +1,6 @@
 import { Checkbox } from "@workspace/ui/components/checkbox"
 import { LoadingOverlay } from "@workspace/ui/components/loading-overlay"
+import { Skeleton } from "@workspace/ui/components/skeleton"
 import {
   Table,
   TableBody,
@@ -69,8 +70,45 @@ export function TransactionTable({
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-8">
-        <div className="text-muted-foreground">Loading transactions...</div>
+      <div className="relative flex-1 overflow-auto rounded-md border">
+        <Table>
+          <TableHeader className="sticky top-0 z-10 bg-background">
+            <TableRow>
+              {onSelectionChange && <TableHead className="w-12" />}
+              <TableHead>Date</TableHead>
+              <TableHead>Store</TableHead>
+              <TableHead>Notes</TableHead>
+              <TableHead>Category</TableHead>
+              <TableHead className="text-right">Amount</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+              <TableRow key={i}>
+                {onSelectionChange && (
+                  <TableCell className="w-12">
+                    <Skeleton className="h-4 w-4" />
+                  </TableCell>
+                )}
+                <TableCell>
+                  <Skeleton className="h-4 w-24" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-4 w-32" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-4 w-48" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-4 w-28" />
+                </TableCell>
+                <TableCell className="text-right">
+                  <Skeleton className="ml-auto h-4 w-20" />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </div>
     )
   }

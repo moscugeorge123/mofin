@@ -42,6 +42,7 @@ import { toast } from "sonner"
 import { DashboardLayout } from "../components/dashboard-layout"
 import { TransactionDetailsSheet } from "../components/transactions/transaction-details-sheet"
 import { TransactionTable } from "../components/transactions/transaction-table"
+import { TransactionTotalsDisplay } from "../components/transactions/transaction-totals"
 import {
   useDeleteFile,
   useFileStatus,
@@ -80,7 +81,8 @@ function FilesPage() {
     selectedFileId,
     !!selectedFileId
   )
-  const { data: fileTotals } = useFileTotals(selectedFileId)
+  const { data: fileTotals, isLoading: fileTotalsLoading } =
+    useFileTotals(selectedFileId)
   const deleteFileMutation = useDeleteFile()
   const renameFileMutation = useRenameFile()
 
@@ -102,7 +104,6 @@ function FilesPage() {
       },
       { credit: 0, debit: 0 }
     )
-  const selectedBalance = selectedTotals.credit - selectedTotals.debit
 
   // Clear selections when file changes
   useEffect(() => {
@@ -303,90 +304,18 @@ function FilesPage() {
               <div className="flex flex-1 items-center justify-center text-muted-foreground">
                 Select a file from the list to view transactions
               </div>
-            ) : fileDetailsLoading ? (
-              <div className="flex flex-1 items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin" />
-              </div>
             ) : (
               <>
-                {selectedTransactionIds.length === 0 ? (
-                  fileTotals && (
-                    <div className="mb-4 grid grid-cols-3 gap-4 px-6">
-                      <div className="rounded-lg border bg-card p-4 text-card-foreground shadow-sm">
-                        <div className="text-sm font-medium text-muted-foreground">
-                          Total Credit
-                        </div>
-                        <div className="mt-1 text-2xl font-bold text-green-600">
-                          ${fileTotals.credit.toFixed(2)}
-                        </div>
-                      </div>
-                      <div className="rounded-lg border bg-card p-4 text-card-foreground shadow-sm">
-                        <div className="text-sm font-medium text-muted-foreground">
-                          Total Debit
-                        </div>
-                        <div className="mt-1 text-2xl font-bold text-red-600">
-                          ${fileTotals.debit.toFixed(2)}
-                        </div>
-                      </div>
-                      <div className="rounded-lg border bg-card p-4 text-card-foreground shadow-sm">
-                        <div className="text-sm font-medium text-muted-foreground">
-                          Net Balance
-                        </div>
-                        <div
-                          className={`mt-1 text-2xl font-bold ${
-                            fileTotals.balance >= 0
-                              ? "text-green-600"
-                              : "text-red-600"
-                          }`}
-                        >
-                          ${fileTotals.balance.toFixed(2)}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                ) : (
-                  <div className="mx-6 mb-4 flex items-center justify-between rounded-lg border bg-muted/50 px-4 py-3">
-                    <span className="text-sm font-medium text-muted-foreground">
-                      {selectedTransactionIds.length} transaction
-                      {selectedTransactionIds.length !== 1 ? "s" : ""} selected
-                    </span>
-                    <div className="flex items-center gap-6">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-muted-foreground">
-                          Credit:
-                        </span>
-                        <span className="text-lg font-bold text-green-600">
-                          ${selectedTotals.credit.toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-muted-foreground">
-                          Debit:
-                        </span>
-                        <span className="text-lg font-bold text-red-600">
-                          ${selectedTotals.debit.toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-muted-foreground">
-                          Balance:
-                        </span>
-                        <span
-                          className={`text-lg font-bold ${
-                            selectedBalance >= 0
-                              ? "text-green-600"
-                              : "text-red-600"
-                          }`}
-                        >
-                          ${selectedBalance.toFixed(2)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                <TransactionTotalsDisplay
+                  isLoading={fileTotalsLoading}
+                  totals={fileTotals}
+                  selectedCount={selectedTransactionIds.length}
+                  selectedTotals={selectedTotals}
+                  className="px-6"
+                />
                 <TransactionTable
                   transactions={fileTransactions}
-                  isLoading={false}
+                  isLoading={fileDetailsLoading}
                   isFetching={false}
                   error={null}
                   onTransactionClick={handleTransactionClick}
