@@ -16,6 +16,7 @@ import { Route as GroupsRouteImport } from './routes/groups'
 import { Route as FilesRouteImport } from './routes/files'
 import { Route as BankAccountsRouteImport } from './routes/bank-accounts'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as GroupsIdRouteImport } from './routes/groups_.$id'
 
 const TransactionsRoute = TransactionsRouteImport.update({
   id: '/transactions',
@@ -52,6 +53,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GroupsIdRoute = GroupsIdRouteImport.update({
+  id: '/groups_/$id',
+  path: '/groups/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -61,6 +67,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/transactions': typeof TransactionsRoute
+  '/groups/$id': typeof GroupsIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -70,6 +77,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/transactions': typeof TransactionsRoute
+  '/groups/$id': typeof GroupsIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -80,6 +88,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/transactions': typeof TransactionsRoute
+  '/groups_/$id': typeof GroupsIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -91,6 +100,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/transactions'
+    | '/groups/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -100,6 +110,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/transactions'
+    | '/groups/$id'
   id:
     | '__root__'
     | '/'
@@ -109,6 +120,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/transactions'
+    | '/groups_/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -119,6 +131,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
   TransactionsRoute: typeof TransactionsRoute
+  GroupsIdRoute: typeof GroupsIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -172,6 +185,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/groups_/$id': {
+      id: '/groups_/$id'
+      path: '/groups/$id'
+      fullPath: '/groups/$id'
+      preLoaderRoute: typeof GroupsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -183,6 +203,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,
   TransactionsRoute: TransactionsRoute,
+  GroupsIdRoute: GroupsIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

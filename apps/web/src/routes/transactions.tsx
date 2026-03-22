@@ -16,7 +16,11 @@ import { TransactionPagination } from "../components/transactions/transaction-pa
 import { TransactionTable } from "../components/transactions/transaction-table"
 import { UploadTransactionDialog } from "../components/upload-transaction-dialog"
 import { useBankAccounts } from "../hooks/use-bank-accounts"
-import { useTransactionFiles, useTransactions } from "../hooks/use-transactions"
+import {
+  useTransactionFiles,
+  useTransactions,
+  useTransactionTotals,
+} from "../hooks/use-transactions"
 import { authService } from "../services/auth.service"
 import type { Transaction, TransactionsQueryParams } from "../types/transaction"
 
@@ -34,6 +38,9 @@ function TransactionsPage() {
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null)
   const [detailsSheetOpen, setDetailsSheetOpen] = useState(false)
+  const [selectedTransactionIds, setSelectedTransactionIds] = useState<
+    string[]
+  >([])
 
   // Fetch bank accounts for filter
   const { data: accounts = [], isLoading: accountsLoading } = useBankAccounts()
@@ -131,8 +138,31 @@ function TransactionsPage() {
     error,
   } = useTransactions(queryParams)
 
+  // Get totals with the same filters but without pagination
+  const totalsParams: TransactionsQueryParams = { ...queryParams }
+  delete totalsParams.page
+  delete totalsParams.limit
+
+  const { data: totals } = useTransactionTotals(totalsParams)
+
   const transactions = response?.data || []
   const pagination = response?.pagination
+
+  // Calculate selected transaction totals
+  const selectedTotals = transactions
+    .filter((t) => selectedTransactionIds.includes(t._id))
+    .reduce(
+      (acc, t) => {
+        if (t.creditDebitIndicator === "Credit") {
+          acc.credit += t.amount.sum
+        } else {
+          acc.debit += t.amount.sum
+        }
+        return acc
+      },
+      { credit: 0, debit: 0 }
+    )
+  const selectedBalance = selectedTotals.credit - selectedTotals.debit
 
   const handleDialogClose = (open: boolean) => {
     setUploadDialogOpen(open)
@@ -146,6 +176,11 @@ function TransactionsPage() {
     setMinAmount("")
     setMaxAmount("")
   }
+
+  // Clear selections when page changes
+  useEffect(() => {
+    setSelectedTransactionIds([])
+  }, [currentPage])
 
   const handleTransactionClick = (transaction: Transaction) => {
     setSelectedTransaction(transaction)
@@ -193,6 +228,78 @@ function TransactionsPage() {
             onClearFilters={clearFilters}
           />
 
+          {selectedTransactionIds.length === 0 ? (
+            totals && (
+              <div className="mb-4 grid grid-cols-3 gap-4">
+                <div className="rounded-lg border bg-card p-4 text-card-foreground shadow-sm">
+                  <div className="text-sm font-medium text-muted-foreground">
+                    Total Credit
+                  </div>
+                  <div className="mt-1 text-2xl font-bold text-green-600">
+                    ${totals.credit.toFixed(2)}
+                  </div>
+                </div>
+                <div className="rounded-lg border bg-card p-4 text-card-foreground shadow-sm">
+                  <div className="text-sm font-medium text-muted-foreground">
+                    Total Debit
+                  </div>
+                  <div className="mt-1 text-2xl font-bold text-red-600">
+                    ${totals.debit.toFixed(2)}
+                  </div>
+                </div>
+                <div className="rounded-lg border bg-card p-4 text-card-foreground shadow-sm">
+                  <div className="text-sm font-medium text-muted-foreground">
+                    Net Balance
+                  </div>
+                  <div
+                    className={`mt-1 text-2xl font-bold ${
+                      totals.balance >= 0 ? "text-green-600" : "text-red-600"
+                    }`}
+                  >
+                    ${totals.balance.toFixed(2)}
+                  </div>
+                </div>
+              </div>
+            )
+          ) : (
+            <div className="mb-4 flex items-center justify-between rounded-lg border bg-muted/50 px-4 py-3">
+              <span className="text-sm font-medium text-muted-foreground">
+                {selectedTransactionIds.length} transaction
+                {selectedTransactionIds.length !== 1 ? "s" : ""} selected
+              </span>
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-muted-foreground">
+                    Credit:
+                  </span>
+                  <span className="text-lg font-bold text-green-600">
+                    ${selectedTotals.credit.toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-muted-foreground">
+                    Debit:
+                  </span>
+                  <span className="text-lg font-bold text-red-600">
+                    ${selectedTotals.debit.toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-muted-foreground">
+                    Balance:
+                  </span>
+                  <span
+                    className={`text-lg font-bold ${
+                      selectedBalance >= 0 ? "text-green-600" : "text-red-600"
+                    }`}
+                  >
+                    ${selectedBalance.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="flex min-h-0 flex-1 flex-col">
             <TransactionTable
               transactions={transactions}
@@ -200,6 +307,8 @@ function TransactionsPage() {
               isFetching={isFetching}
               error={error}
               onTransactionClick={handleTransactionClick}
+              selectedTransactions={selectedTransactionIds}
+              onSelectionChange={setSelectedTransactionIds}
             />
 
             {pagination && pagination.totalPages > 1 && (

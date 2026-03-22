@@ -1,5 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
+import fs from 'fs';
 import mongoose from 'mongoose';
+import path from 'path';
 import { BankAccountModel } from '../database/models/bank-account';
 import { TransactionModel } from '../database/models/transaction';
 import { TransactionFileModel } from '../database/models/transaction-file';
@@ -622,6 +624,253 @@ export class TransactionController {
       console.error('Error fetching transaction files:', error);
       res.status(500).json({
         error: 'Failed to fetch transaction files',
+        details: error.message,
+      });
+    }
+  }
+
+  // Get transaction totals (sum of credit and debit) for the authenticated user
+  static async getTotals(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = (req as any).user.id;
+      const {
+        accountId,
+        category,
+        startDate,
+        endDate,
+        status,
+        search,
+        creditDebitIndicator,
+        minAmount,
+        maxAmount,
+      } = req.query;
+
+      // Get all accounts the user has access to
+      const accessibleAccounts = await BankAccountModel.findAccessibleByUser(
+        new mongoose.Types.ObjectId(userId),
+      );
+      const accessibleAccountIds = accessibleAccounts.map((acc) => acc._id);
+
+      let query: any = { accountId: { $in: accessibleAccountIds } };
+
+      if (accountId) query.accountId = accountId;
+      if (category) query.category = category;
+      if (status) query.status = status;
+      if (creditDebitIndicator)
+        query.creditDebitIndicator = creditDebitIndicator;
+
+      if (startDate || endDate) {
+        query.date = {};
+        if (startDate) query.date.$gte = new Date(startDate as string);
+        if (endDate) query.date.$lte = new Date(endDate as string);
+      }
+
+      // Search in store and notes fields
+      if (search) {
+        query.$or = [
+          { store: { $regex: search, $options: 'i' } },
+          { notes: { $regex: search, $options: 'i' } },
+        ];
+      }
+
+      // Filter by amount range
+      if (minAmount || maxAmount) {
+        query['amount.sum'] = {};
+        if (minAmount)
+          query['amount.sum'].$gte = parseFloat(minAmount as string);
+        if (maxAmount)
+          query['amount.sum'].$lte = parseFloat(maxAmount as string);
+      }
+
+      // Calculate totals using aggregation
+      const totals = await TransactionModel.aggregate([
+        { $match: query },
+        {
+          $group: {
+            _id: '$creditDebitIndicator',
+            total: { $sum: '$amount.sum' },
+          },
+        },
+      ]);
+
+      // Format the response
+      let creditTotal = 0;
+      let debitTotal = 0;
+
+      totals.forEach((item) => {
+        if (item._id === 'Credit') {
+          creditTotal = item.total;
+        } else if (item._id === 'Debit') {
+          debitTotal = item.total;
+        }
+      });
+
+      res.json({
+        credit: creditTotal,
+        debit: debitTotal,
+        balance: creditTotal - debitTotal,
+      });
+    } catch (error: any) {
+      console.error('Error calculating transaction totals:', error);
+      res.status(500).json({
+        error: 'Failed to calculate totals',
+        details: error.message,
+      });
+    }
+  }
+
+  // Get transaction totals for a specific file
+  static async getFileTotals(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = (req as any).user.id;
+      const { fileId } = req.params;
+
+      // Get the transaction file
+      const transactionFile = await TransactionFileModel.findById(fileId);
+
+      if (!transactionFile) {
+        res.status(404).json({ error: 'Transaction file not found' });
+        return;
+      }
+
+      // Verify user owns this file
+      if (!transactionFile.userId.equals(new mongoose.Types.ObjectId(userId))) {
+        res.status(403).json({ error: 'Access denied' });
+        return;
+      }
+
+      // Calculate totals for transactions in this file
+      const totals = await TransactionModel.aggregate([
+        { $match: { _id: { $in: transactionFile.transactions } } },
+        {
+          $group: {
+            _id: '$creditDebitIndicator',
+            total: { $sum: '$amount.sum' },
+          },
+        },
+      ]);
+
+      // Format the response
+      let creditTotal = 0;
+      let debitTotal = 0;
+
+      totals.forEach((item) => {
+        if (item._id === 'Credit') {
+          creditTotal = item.total;
+        } else if (item._id === 'Debit') {
+          debitTotal = item.total;
+        }
+      });
+
+      res.json({
+        credit: creditTotal,
+        debit: debitTotal,
+        balance: creditTotal - debitTotal,
+      });
+    } catch (error: any) {
+      console.error('Error calculating file totals:', error);
+      res.status(500).json({
+        error: 'Failed to calculate file totals',
+        details: error.message,
+      });
+    }
+  }
+
+  // Rename a transaction file
+  static async renameFile(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = (req as any).user.id;
+      const { fileId } = req.params;
+      const { originalName } = req.body;
+
+      if (!originalName || !originalName.trim()) {
+        res.status(400).json({ error: 'File name is required' });
+        return;
+      }
+
+      const transactionFile = await TransactionFileModel.findById(fileId);
+
+      if (!transactionFile) {
+        res.status(404).json({ error: 'Transaction file not found' });
+        return;
+      }
+
+      // Verify user owns this file
+      if (!transactionFile.userId.equals(new mongoose.Types.ObjectId(userId))) {
+        res.status(403).json({ error: 'Access denied' });
+        return;
+      }
+
+      transactionFile.originalName = originalName.trim();
+      await transactionFile.save();
+
+      res.json({
+        message: 'File renamed successfully',
+        file: {
+          fileId: transactionFile._id,
+          originalName: transactionFile.originalName,
+        },
+      });
+    } catch (error: any) {
+      console.error('Error renaming file:', error);
+      res.status(500).json({
+        error: 'Failed to rename file',
+        details: error.message,
+      });
+    }
+  }
+
+  // Delete a transaction file and all its transactions
+  static async deleteFile(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = (req as any).user.id;
+      const { fileId } = req.params;
+
+      const transactionFile = await TransactionFileModel.findById(fileId);
+
+      if (!transactionFile) {
+        res.status(404).json({ error: 'Transaction file not found' });
+        return;
+      }
+
+      // Verify user owns this file
+      if (!transactionFile.userId.equals(new mongoose.Types.ObjectId(userId))) {
+        res.status(403).json({ error: 'Access denied' });
+        return;
+      }
+
+      // Delete all transactions associated with this file
+      await TransactionModel.deleteMany({
+        _id: { $in: transactionFile.transactions },
+      });
+
+      // Delete the file record
+      await TransactionFileModel.findByIdAndDelete(fileId);
+
+      // Try to delete the physical file (non-blocking - DB deletion always succeeds)
+      if (transactionFile.filePath) {
+        try {
+          const fullPath = path.resolve(transactionFile.filePath);
+          if (fs.existsSync(fullPath)) {
+            fs.unlinkSync(fullPath);
+            console.log(`Physical file deleted: ${fullPath}`);
+          } else {
+            console.log(`Physical file not found: ${fullPath}`);
+          }
+        } catch (fileError: any) {
+          // Log but don't fail the request - DB deletion succeeded
+          console.warn(`Could not delete physical file: ${fileError.message}`);
+        }
+      }
+
+      res.json({
+        message: 'File and associated transactions deleted successfully',
+        transactionCount: transactionFile.transactions.length,
+      });
+    } catch (error: any) {
+      console.error('Error deleting file:', error);
+      res.status(500).json({
+        error: 'Failed to delete file',
         details: error.message,
       });
     }

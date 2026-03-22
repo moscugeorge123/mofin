@@ -204,4 +204,118 @@ export class CategoryController {
       catchMongoValidation(error, res);
     }
   }
+
+  // Get transactions that match category rules (with pagination and filters)
+  static async getTransactionsByRules(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const userId = (req as any).user.id;
+      const { id } = req.params;
+      const {
+        accountId,
+        startDate,
+        endDate,
+        status,
+        search,
+        creditDebitIndicator,
+        minAmount,
+        maxAmount,
+        page,
+        limit,
+      } = req.query;
+
+      const category = await CategoryModel.findById(id);
+
+      if (!category) {
+        res.status(404).json({ error: 'Category not found' });
+        return;
+      }
+
+      if (!category.userId.equals(new mongoose.Types.ObjectId(userId))) {
+        res.status(403).json({ error: 'Access denied' });
+        return;
+      }
+
+      const BankAccountModel = mongoose.model('BankAccount');
+      const TransactionModel = mongoose.model('Transaction');
+
+      // Get all accounts the user has access to
+      const accessibleAccounts = await BankAccountModel.find({
+        $or: [
+          { owner: new mongoose.Types.ObjectId(userId) },
+          { sharedWith: new mongoose.Types.ObjectId(userId) },
+        ],
+      });
+      const accessibleAccountIds = accessibleAccounts.map(
+        (acc: any) => acc._id,
+      );
+
+      // Build base query
+      let query: any = { accountId: { $in: accessibleAccountIds } };
+
+      if (accountId) query.accountId = accountId;
+      if (status) query.status = status;
+      if (creditDebitIndicator)
+        query.creditDebitIndicator = creditDebitIndicator;
+
+      if (startDate || endDate) {
+        query.date = {};
+        if (startDate) query.date.$gte = new Date(startDate as string);
+        if (endDate) query.date.$lte = new Date(endDate as string);
+      }
+
+      // Search in store and notes fields
+      if (search) {
+        query.$or = [
+          { store: { $regex: search, $options: 'i' } },
+          { notes: { $regex: search, $options: 'i' } },
+        ];
+      }
+
+      // Filter by amount range
+      if (minAmount || maxAmount) {
+        query['amount.sum'] = {};
+        if (minAmount)
+          query['amount.sum'].$gte = parseFloat(minAmount as string);
+        if (maxAmount)
+          query['amount.sum'].$lte = parseFloat(maxAmount as string);
+      }
+
+      // Get ALL matching transactions first (we need to filter by rules in memory)
+      const allTransactions = await TransactionModel.find(query)
+        .populate(['accountId', 'category', 'tags'])
+        .sort({ date: -1 });
+
+      // Filter transactions by category rules
+      const matchingTransactions = allTransactions.filter((transaction) =>
+        category.matchesTransaction(transaction),
+      );
+
+      // Apply pagination after filtering
+      const pageNumber = parseInt(page as string) || 1;
+      const pageSize = parseInt(limit as string) || 50;
+      const skip = (pageNumber - 1) * pageSize;
+      const totalCount = matchingTransactions.length;
+
+      const paginatedTransactions = matchingTransactions.slice(
+        skip,
+        skip + pageSize,
+      );
+
+      res.json({
+        data: paginatedTransactions,
+        pagination: {
+          page: pageNumber,
+          limit: pageSize,
+          total: totalCount,
+          totalPages: Math.ceil(totalCount / pageSize),
+        },
+      });
+    } catch (error: any) {
+      catchMongoValidation(error, res);
+    }
+  }
 }

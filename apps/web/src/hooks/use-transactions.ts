@@ -13,6 +13,10 @@ export const transactionKeys = {
   detail: (id: string) => [...transactionKeys.details(), id] as const,
   files: () => [...transactionKeys.all, "files"] as const,
   fileStatus: (fileId: string) => [...transactionKeys.files(), fileId] as const,
+  fileTotals: (fileId: string) =>
+    [...transactionKeys.files(), fileId, "totals"] as const,
+  totals: (params?: TransactionsQueryParams) =>
+    [...transactionKeys.all, "totals", params] as const,
 }
 
 export function useTransactions(params?: TransactionsQueryParams) {
@@ -31,6 +35,23 @@ export function useTransaction(id: string) {
   })
 }
 
+export function useTransactionTotals(params?: TransactionsQueryParams) {
+  return useQuery({
+    queryKey: transactionKeys.totals(params),
+    queryFn: () => transactionsApi.getTotals(params),
+    staleTime: Number.POSITIVE_INFINITY, // Infinite stale time
+  })
+}
+
+export function useFileTotals(fileId: string | null) {
+  return useQuery({
+    queryKey: transactionKeys.fileTotals(fileId || ""),
+    queryFn: () => transactionsApi.getFileTotals(fileId!),
+    enabled: !!fileId,
+    staleTime: Number.POSITIVE_INFINITY, // Infinite stale time
+  })
+}
+
 export function useCreateTransaction() {
   const queryClient = useQueryClient()
 
@@ -38,6 +59,7 @@ export function useCreateTransaction() {
     mutationFn: (data: Partial<Transaction>) => transactionsApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: transactionKeys.lists() })
+      queryClient.invalidateQueries({ queryKey: transactionKeys.all })
     },
   })
 }
@@ -53,6 +75,7 @@ export function useUpdateTransaction() {
       queryClient.invalidateQueries({
         queryKey: transactionKeys.detail(variables.id),
       })
+      queryClient.invalidateQueries({ queryKey: transactionKeys.all })
     },
   })
 }
@@ -64,6 +87,7 @@ export function useDeleteTransaction() {
     mutationFn: (id: string) => transactionsApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: transactionKeys.lists() })
+      queryClient.invalidateQueries({ queryKey: transactionKeys.all })
     },
   })
 }
@@ -91,6 +115,7 @@ export function useUploadTransactionFile() {
       transactionsApi.uploadFile(file, accountId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: transactionKeys.lists() })
+      queryClient.invalidateQueries({ queryKey: transactionKeys.all })
     },
   })
 }
@@ -160,8 +185,8 @@ export function useTransactionFiles() {
     const previousData = previousDataRef.current
 
     if (currentData && previousData) {
-      const currentFiles = currentData.files
-      const previousFiles = previousData.files
+      const currentFiles = currentData.files || []
+      const previousFiles = previousData.files || []
 
       // Check for newly completed files
       currentFiles.forEach((currentFile) => {
@@ -182,8 +207,9 @@ export function useTransactionFiles() {
                 description: `${currentFile.transactionCount || 0} transactions extracted`,
               }
             )
-            // Invalidate transactions list to show new transactions
+            // Invalidate transactions list and totals to show new transactions
             queryClient.invalidateQueries({ queryKey: transactionKeys.lists() })
+            queryClient.invalidateQueries({ queryKey: transactionKeys.all })
           }
 
           // File went from processing to failed
@@ -206,4 +232,34 @@ export function useTransactionFiles() {
   }, [query.data, queryClient])
 
   return query
+}
+
+export function useRenameFile() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      fileId,
+      originalName,
+    }: {
+      fileId: string
+      originalName: string
+    }) => transactionsApi.renameFile(fileId, originalName),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: transactionKeys.files() })
+    },
+  })
+}
+
+export function useDeleteFile() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (fileId: string) => transactionsApi.deleteFile(fileId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: transactionKeys.files() })
+      queryClient.invalidateQueries({ queryKey: transactionKeys.lists() })
+      queryClient.invalidateQueries({ queryKey: transactionKeys.all })
+    },
+  })
 }

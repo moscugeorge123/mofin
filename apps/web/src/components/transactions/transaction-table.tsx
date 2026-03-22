@@ -1,3 +1,4 @@
+import { Checkbox } from "@workspace/ui/components/checkbox"
 import { LoadingOverlay } from "@workspace/ui/components/loading-overlay"
 import {
   Table,
@@ -21,6 +22,8 @@ interface TransactionTableProps {
   isFetching: boolean
   error: Error | null
   onTransactionClick?: (transaction: Transaction) => void
+  selectedTransactions?: string[]
+  onSelectionChange?: (transactionIds: string[]) => void
 }
 
 export function TransactionTable({
@@ -29,7 +32,33 @@ export function TransactionTable({
   isFetching,
   error,
   onTransactionClick,
+  selectedTransactions = [],
+  onSelectionChange,
 }: TransactionTableProps) {
+  const handleSelectAll = (checked: boolean) => {
+    if (!onSelectionChange) return
+    if (checked) {
+      onSelectionChange(transactions.map((t) => t._id))
+    } else {
+      onSelectionChange([])
+    }
+  }
+
+  const handleSelectOne = (transactionId: string, checked: boolean) => {
+    if (!onSelectionChange) return
+    if (checked) {
+      onSelectionChange([...selectedTransactions, transactionId])
+    } else {
+      onSelectionChange(
+        selectedTransactions.filter((id) => id !== transactionId)
+      )
+    }
+  }
+
+  const isAllSelected =
+    transactions.length > 0 &&
+    transactions.every((t) => selectedTransactions.includes(t._id))
+  const isSomeSelected = selectedTransactions.length > 0 && !isAllSelected
   if (error) {
     return (
       <div className="flex items-center justify-center py-8 text-destructive">
@@ -53,6 +82,17 @@ export function TransactionTable({
       <Table>
         <TableHeader className="sticky top-0 z-10 bg-background">
           <TableRow>
+            {onSelectionChange && (
+              <TableHead className="w-12">
+                <Checkbox
+                  checked={
+                    isAllSelected || (isSomeSelected ? "indeterminate" : false)
+                  }
+                  onCheckedChange={handleSelectAll}
+                  aria-label="Select all transactions"
+                />
+              </TableHead>
+            )}
             <TableHead>Date</TableHead>
             <TableHead>Store</TableHead>
             <TableHead>Notes</TableHead>
@@ -64,7 +104,7 @@ export function TransactionTable({
           {transactions.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={5}
+                colSpan={onSelectionChange ? 6 : 5}
                 className="text-center text-muted-foreground"
               >
                 No transactions found
@@ -77,12 +117,28 @@ export function TransactionTable({
                   ? transaction.category
                   : transaction.category?.name
 
+              const isSelected = selectedTransactions.includes(transaction._id)
+
               return (
                 <TableRow
                   key={transaction._id}
                   className="cursor-pointer hover:bg-muted/50"
                   onClick={() => onTransactionClick?.(transaction)}
                 >
+                  {onSelectionChange && (
+                    <TableCell
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-12"
+                    >
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={(checked) =>
+                          handleSelectOne(transaction._id, checked as boolean)
+                        }
+                        aria-label={`Select transaction ${transaction._id}`}
+                      />
+                    </TableCell>
+                  )}
                   <TableCell className="font-medium">
                     {new Date(transaction.date).toLocaleDateString("en-US", {
                       month: "short",

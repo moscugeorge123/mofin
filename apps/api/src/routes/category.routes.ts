@@ -22,6 +22,12 @@ router.put('/:id', CategoryController.update);
 // Delete category
 router.delete('/:id', CategoryController.delete);
 
+// Get transactions that match category rules (place before /:id/transactions)
+router.get(
+  '/:id/transactions/by-rules',
+  CategoryController.getTransactionsByRules,
+);
+
 // Get transactions for a category
 router.get('/:id/transactions', CategoryController.getTransactions);
 

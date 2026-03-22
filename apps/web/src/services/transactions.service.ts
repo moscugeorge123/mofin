@@ -94,9 +94,75 @@ export const transactionsApi = {
   getAllFiles: async (
     status?: string
   ): Promise<{
-    files: TransactionFile[]
+    files?: TransactionFile[]
   }> => {
     const queryParams = status ? `?status=${status}` : ""
     return apiClient.get(`/api/transactions/files${queryParams}`)
+  },
+
+  getTotals: async (
+    params?: TransactionsQueryParams
+  ): Promise<{
+    credit: number
+    debit: number
+    balance: number
+  }> => {
+    const queryParams = new URLSearchParams()
+
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== "") {
+          // Skip pagination params for totals
+          if (key !== "page" && key !== "limit") {
+            queryParams.append(key, String(value))
+          }
+        }
+      })
+    }
+
+    const queryString = queryParams.toString()
+    return apiClient.get<{
+      credit: number
+      debit: number
+      balance: number
+    }>(`/api/transactions/totals${queryString ? `?${queryString}` : ""}`)
+  },
+
+  getFileTotals: async (
+    fileId: string
+  ): Promise<{
+    credit: number
+    debit: number
+    balance: number
+  }> => {
+    return apiClient.get<{
+      credit: number
+      debit: number
+      balance: number
+    }>(`/api/transactions/files/${fileId}/totals`)
+  },
+
+  renameFile: async (
+    fileId: string,
+    originalName: string
+  ): Promise<{
+    message: string
+    file: {
+      fileId: string
+      originalName: string
+    }
+  }> => {
+    return apiClient.put(`/api/transactions/files/${fileId}/rename`, {
+      originalName,
+    })
+  },
+
+  deleteFile: async (
+    fileId: string
+  ): Promise<{
+    message: string
+    transactionCount: number
+  }> => {
+    return apiClient.delete(`/api/transactions/files/${fileId}`)
   },
 }

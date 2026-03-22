@@ -8,6 +8,9 @@ const router = Router();
 // All routes require authentication
 router.use(authMiddleware);
 
+// Get transaction totals (credit and debit sums)
+router.get('/totals', TransactionController.getTotals);
+
 // Extract transactions from uploaded file (PDF, CSV)
 router.post(
   '/extract',
@@ -17,6 +20,15 @@ router.post(
 
 // Get all transaction files (with optional status filter)
 router.get('/files', TransactionController.getAllFiles);
+
+// Get totals for a specific transaction file
+router.get('/files/:fileId/totals', TransactionController.getFileTotals);
+
+// Rename a transaction file
+router.put('/files/:fileId/rename', TransactionController.renameFile);
+
+// Delete a transaction file and its transactions
+router.delete('/files/:fileId', TransactionController.deleteFile);
 
 // Get status of a specific transaction file
 router.get('/files/:fileId', TransactionController.getFileStatus);
