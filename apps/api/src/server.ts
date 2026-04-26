@@ -10,6 +10,7 @@ import productRoutes from './routes/product.routes';
 import receiptExtractionRoutes from './routes/receipt-extraction.routes';
 import receiptProductRoutes from './routes/receipt-product.routes';
 import receiptRoutes from './routes/receipt.routes';
+import snapshotRoutes from './routes/snapshot.routes';
 import tagRoutes from './routes/tag.routes';
 import transactionRoutes from './routes/transactions.routes';
 import userRoutes from './routes/user.routes';
@@ -34,6 +35,7 @@ connectToDatabase().then(async () => {
   app.use('/api/bank-accounts', bankAccountRoutes);
   app.use('/api/transactions', transactionRoutes);
   app.use('/api/categories', categoryRoutes);
+  app.use('/api/snapshots', snapshotRoutes);
   app.use('/api/tags', tagRoutes);
   app.use('/api/products', productRoutes);
   app.use('/api/receipts', receiptRoutes);

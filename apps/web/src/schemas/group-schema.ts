@@ -35,11 +35,6 @@ export const groupSchema = z.object({
     .string()
     .max(500, "Description cannot exceed 500 characters")
     .optional(),
-  color: z
-    .string()
-    .regex(/^#[0-9A-Fa-f]{6}$/, "Color must be a valid hex color code")
-    .optional()
-    .or(z.literal("")),
   icon: z.string().optional(),
   rules: z.array(ruleSchema).optional(),
 })

@@ -39,6 +39,7 @@ interface TransactionTableProps {
   onSelectionChange?: (transactionIds: string[]) => void
   onRemoveFromGroup?: (transactionId: string) => void
   onExcludeFromGroup?: (transactionId: string) => void
+  removeFromGroupLabel?: string
   manualTransactionIds?: string[]
 }
 
@@ -52,6 +53,7 @@ export function TransactionTable({
   onSelectionChange,
   onRemoveFromGroup,
   onExcludeFromGroup,
+  removeFromGroupLabel = "Remove from group",
   manualTransactionIds = [],
 }: TransactionTableProps) {
   const manualSet = new Set(manualTransactionIds)
@@ -321,7 +323,7 @@ export function TransactionTable({
                                 onRemoveFromGroup(transaction._id)
                               }
                             >
-                              Remove from group
+                              {removeFromGroupLabel}
                             </DropdownMenuItem>
                           )}
                         {onExcludeFromGroup &&

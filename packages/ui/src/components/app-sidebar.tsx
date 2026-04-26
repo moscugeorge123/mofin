@@ -8,6 +8,7 @@ import {
   SidebarFooter,
 } from "@workspace/ui/components/sidebar"
 import {
+  CameraIcon,
   FileTextIcon,
   FoldersIcon,
   LayoutDashboardIcon,
@@ -63,6 +64,12 @@ export function AppSidebar({
         url: "/groups",
         icon: <FoldersIcon />,
         isActive: currentPath === "/groups",
+      },
+      {
+        title: "Snapshots",
+        url: "/snapshots",
+        icon: <CameraIcon />,
+        isActive: currentPath === "/snapshots",
       },
     ],
     beforeUserMenu: [

@@ -52,7 +52,6 @@ export function GroupDialog({
     defaultValues: {
       name: "",
       description: "",
-      color: "#808080",
       icon: "💰",
       rules: [],
     },
@@ -64,7 +63,6 @@ export function GroupDialog({
       form.reset({
         name: category.name,
         description: category.description || "",
-        color: category.color || "#808080",
         icon: category.icon || "💰",
         rules: category.rules,
       })
@@ -73,7 +71,6 @@ export function GroupDialog({
       form.reset({
         name: "",
         description: "",
-        color: "#808080",
         icon: "💰",
         rules: [],
       })
@@ -85,7 +82,6 @@ export function GroupDialog({
     try {
       const payload = {
         ...data,
-        color: data.color || "#808080",
         rules: rules,
       }
 
@@ -164,36 +160,7 @@ export function GroupDialog({
               )}
             />
 
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="color"
-                render={({ field }: { field: any }) => (
-                  <FormItem>
-                    <FormLabel>Color</FormLabel>
-                    <FormControl>
-                      <div className="flex gap-2">
-                        <Input
-                          type="color"
-                          {...field}
-                          className="h-10 w-10 cursor-pointer p-1"
-                        />
-                        <Input
-                          placeholder="#808080"
-                          value={field.value}
-                          onChange={field.onChange}
-                          className="flex-1"
-                        />
-                      </div>
-                    </FormControl>
-                    <FormDescription className="text-xs">
-                      Choose a color to identify this group
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
+            <div className="grid grid-cols-1 gap-4">
               <FormField
                 control={form.control}
                 name="icon"

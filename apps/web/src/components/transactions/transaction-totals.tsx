@@ -18,6 +18,7 @@ interface TransactionTotalsProps {
     byCurrency?: Record<string, { credit: number; debit: number }>
   }
   className?: string
+  flat?: boolean
 }
 
 export function TransactionTotalsDisplay({
@@ -26,6 +27,7 @@ export function TransactionTotalsDisplay({
   selectedCount = 0,
   selectedTotals,
   className = "",
+  flat = false,
 }: TransactionTotalsProps) {
   const selectedBalance = selectedTotals
     ? selectedTotals.credit - selectedTotals.debit
@@ -131,11 +133,8 @@ export function TransactionTotalsDisplay({
   return (
     <div className={`mb-4 ${className}`}>
       {totals.byCurrency && Object.keys(totals.byCurrency).length > 0 && (
-        <div className="rounded-lg border bg-card p-3 text-card-foreground shadow-sm">
-          <div className="mb-2 text-sm font-medium text-muted-foreground">
-            By Currency
-          </div>
-          <div className="flex flex-wrap gap-4 text-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4 text-sm">
+          <div className="flex flex-wrap items-center gap-4">
             {Object.entries(totals.byCurrency).map(([currency, amounts]) => {
               const balance = amounts.credit - amounts.debit
               return (
@@ -144,12 +143,16 @@ export function TransactionTotalsDisplay({
                   className="flex items-center gap-2 rounded border px-3 py-1"
                 >
                   <span className="font-semibold">{currency}:</span>
-                  <span className="text-green-600">
-                    ↑{formatNumber(amounts.credit)}
-                  </span>
-                  <span className="text-red-600">
-                    ↓{formatNumber(amounts.debit)}
-                  </span>
+                  {amounts.credit !== 0 && (
+                    <span className="text-green-600">
+                      ↑{formatNumber(amounts.credit)}
+                    </span>
+                  )}
+                  {amounts.debit !== 0 && (
+                    <span className="text-red-600">
+                      ↓{formatNumber(amounts.debit)}
+                    </span>
+                  )}
                   <span className="text-muted-foreground">=</span>
                   <span
                     className={`font-semibold ${
@@ -162,14 +165,20 @@ export function TransactionTotalsDisplay({
               )
             })}
           </div>
-          <div className="mt-2 flex items-center gap-2 border-t pt-2 text-sm">
+          <div className="ml-auto flex items-center gap-2 text-sm">
             <span className="font-semibold text-muted-foreground">
               Total RON:
             </span>
-            <span className="text-green-600">
-              ↑{formatNumber(totals.credit)}
-            </span>
-            <span className="text-red-600">↓{formatNumber(totals.debit)}</span>
+            {totals.credit !== 0 && (
+              <span className="text-green-600">
+                ↑{formatNumber(totals.credit)}
+              </span>
+            )}
+            {totals.debit !== 0 && (
+              <span className="text-red-600">
+                ↓{formatNumber(totals.debit)}
+              </span>
+            )}
             <span className="text-muted-foreground">=</span>
             <span
               className={`font-semibold ${

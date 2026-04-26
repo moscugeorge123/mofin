@@ -10,17 +10,24 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TransactionsRouteImport } from './routes/transactions'
+import { Route as SnapshotsRouteImport } from './routes/snapshots'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as GroupsRouteImport } from './routes/groups'
 import { Route as FilesRouteImport } from './routes/files'
 import { Route as BankAccountsRouteImport } from './routes/bank-accounts'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SnapshotsIdRouteImport } from './routes/snapshots_.$id'
 import { Route as GroupsIdRouteImport } from './routes/groups_.$id'
 
 const TransactionsRoute = TransactionsRouteImport.update({
   id: '/transactions',
   path: '/transactions',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SnapshotsRoute = SnapshotsRouteImport.update({
+  id: '/snapshots',
+  path: '/snapshots',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RegisterRoute = RegisterRouteImport.update({
@@ -53,6 +60,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SnapshotsIdRoute = SnapshotsIdRouteImport.update({
+  id: '/snapshots_/$id',
+  path: '/snapshots/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GroupsIdRoute = GroupsIdRouteImport.update({
   id: '/groups_/$id',
   path: '/groups/$id',
@@ -66,8 +78,10 @@ export interface FileRoutesByFullPath {
   '/groups': typeof GroupsRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/snapshots': typeof SnapshotsRoute
   '/transactions': typeof TransactionsRoute
   '/groups/$id': typeof GroupsIdRoute
+  '/snapshots/$id': typeof SnapshotsIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -76,8 +90,10 @@ export interface FileRoutesByTo {
   '/groups': typeof GroupsRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/snapshots': typeof SnapshotsRoute
   '/transactions': typeof TransactionsRoute
   '/groups/$id': typeof GroupsIdRoute
+  '/snapshots/$id': typeof SnapshotsIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -87,8 +103,10 @@ export interface FileRoutesById {
   '/groups': typeof GroupsRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/snapshots': typeof SnapshotsRoute
   '/transactions': typeof TransactionsRoute
   '/groups_/$id': typeof GroupsIdRoute
+  '/snapshots_/$id': typeof SnapshotsIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -99,8 +117,10 @@ export interface FileRouteTypes {
     | '/groups'
     | '/login'
     | '/register'
+    | '/snapshots'
     | '/transactions'
     | '/groups/$id'
+    | '/snapshots/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -109,8 +129,10 @@ export interface FileRouteTypes {
     | '/groups'
     | '/login'
     | '/register'
+    | '/snapshots'
     | '/transactions'
     | '/groups/$id'
+    | '/snapshots/$id'
   id:
     | '__root__'
     | '/'
@@ -119,8 +141,10 @@ export interface FileRouteTypes {
     | '/groups'
     | '/login'
     | '/register'
+    | '/snapshots'
     | '/transactions'
     | '/groups_/$id'
+    | '/snapshots_/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -130,8 +154,10 @@ export interface RootRouteChildren {
   GroupsRoute: typeof GroupsRoute
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
+  SnapshotsRoute: typeof SnapshotsRoute
   TransactionsRoute: typeof TransactionsRoute
   GroupsIdRoute: typeof GroupsIdRoute
+  SnapshotsIdRoute: typeof SnapshotsIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -141,6 +167,13 @@ declare module '@tanstack/react-router' {
       path: '/transactions'
       fullPath: '/transactions'
       preLoaderRoute: typeof TransactionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/snapshots': {
+      id: '/snapshots'
+      path: '/snapshots'
+      fullPath: '/snapshots'
+      preLoaderRoute: typeof SnapshotsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/register': {
@@ -185,6 +218,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/snapshots_/$id': {
+      id: '/snapshots_/$id'
+      path: '/snapshots/$id'
+      fullPath: '/snapshots/$id'
+      preLoaderRoute: typeof SnapshotsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/groups_/$id': {
       id: '/groups_/$id'
       path: '/groups/$id'
@@ -202,8 +242,10 @@ const rootRouteChildren: RootRouteChildren = {
   GroupsRoute: GroupsRoute,
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,
+  SnapshotsRoute: SnapshotsRoute,
   TransactionsRoute: TransactionsRoute,
   GroupsIdRoute: GroupsIdRoute,
+  SnapshotsIdRoute: SnapshotsIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router"
 import { Alert, AlertDescription } from "@workspace/ui/components/alert"
+import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import {
   Card,
@@ -9,7 +10,16 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
-import { ArrowLeft, Camera } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@workspace/ui/components/dialog"
+import { Input } from "@workspace/ui/components/input"
+import { ArrowLeft, Share2, UserMinus, UserPlus, Users } from "lucide-react"
 import { useEffect, useState } from "react"
 import type { DateRange } from "react-day-picker"
 import { toast } from "sonner"
@@ -20,40 +30,55 @@ import { TransactionPagination } from "../components/transactions/transaction-pa
 import { TransactionTable } from "../components/transactions/transaction-table"
 import { TransactionTotalsDisplay } from "../components/transactions/transaction-totals"
 import { useBankAccounts } from "../hooks/use-bank-accounts"
-import { useCategory, useGroupTotals } from "../hooks/use-categories"
-import { useCreateSnapshot } from "../hooks/use-snapshots"
+import {
+  useAddSnapshotCollaborator,
+  useRemoveSnapshotCollaborator,
+  useSnapshot,
+  useSnapshotCollaborators,
+  useSnapshotTotals,
+} from "../hooks/use-snapshots"
+import { useUser } from "../hooks/use-user"
 import { authService } from "../services/auth.service"
-import { categoriesApi } from "../services/categories.service"
+import { snapshotsApi } from "../services/snapshots.service"
 import type { Transaction } from "../types/transaction"
 
-export const Route = createFileRoute("/groups_/$id")({
+export const Route = createFileRoute("/snapshots_/$id")({
   beforeLoad: ({ location }) => {
     if (typeof window !== "undefined" && !authService.isAuthenticated()) {
       throw redirect({ to: "/login", search: { redirect: location.href } })
     }
   },
-  component: GroupTransactionsPage,
+  component: SnapshotDetailPage,
 })
 
-function GroupTransactionsPage() {
+function SnapshotDetailPage() {
   const { id } = Route.useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const user = useUser()
+
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null)
   const [detailsSheetOpen, setDetailsSheetOpen] = useState(false)
+  const [collaboratorsOpen, setCollaboratorsOpen] = useState(false)
+  const [newCollaboratorEmail, setNewCollaboratorEmail] = useState("")
 
-  // Fetch category details
+  // Fetch snapshot
   const {
-    data: category,
-    isLoading: categoryLoading,
-    error: categoryError,
-  } = useCategory(id)
+    data: snapshot,
+    isLoading: snapshotLoading,
+    error: snapshotError,
+  } = useSnapshot(id)
 
-  // Fetch bank accounts for filter
+  const isOwner = snapshot?.ownerId === user?.id
+
+  // Collaborators
+  const { data: collaborators = [] } = useSnapshotCollaborators(id)
+  const addCollaboratorMutation = useAddSnapshotCollaborator(id)
+  const removeCollaboratorMutation = useRemoveSnapshotCollaborator(id)
+
+  // Filters
   const { data: accounts = [], isLoading: accountsLoading } = useBankAccounts()
-
-  // Filter states
   const [accountFilter, setAccountFilter] = useState<string>("all")
   const [searchQuery, setSearchQuery] = useState("")
   const [dateRange, setDateRange] = useState<DateRange | undefined>()
@@ -62,11 +87,10 @@ function GroupTransactionsPage() {
   const [minAmount, setMinAmount] = useState("")
   const [maxAmount, setMaxAmount] = useState("")
 
-  // Pagination states
+  // Pagination
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 50
 
-  // Debounced filter states (not including pagination)
   const [debouncedFilters, setDebouncedFilters] = useState({
     accountId: undefined as string | undefined,
     search: "",
@@ -77,10 +101,9 @@ function GroupTransactionsPage() {
     maxAmount: "",
   })
 
-  // Build filter params and debounce them (excluding pagination)
   useEffect(() => {
     const timer = setTimeout(() => {
-      const filters: typeof debouncedFilters = {
+      setDebouncedFilters({
         accountId: accountFilter !== "all" ? accountFilter : undefined,
         search: searchQuery,
         startDate: dateRange?.from?.toISOString(),
@@ -93,15 +116,15 @@ function GroupTransactionsPage() {
             : undefined,
         minAmount,
         maxAmount,
-      }
-
-      setDebouncedFilters(filters)
+      })
     }, 200)
-
     return () => clearTimeout(timer)
   }, [accountFilter, searchQuery, dateRange, typeFilter, minAmount, maxAmount])
 
-  // Build final params from debounced filters + immediate pagination
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [accountFilter, searchQuery, dateRange, typeFilter, minAmount, maxAmount])
+
   const queryParams = {
     page: currentPage,
     limit: pageSize,
@@ -125,27 +148,21 @@ function GroupTransactionsPage() {
     }),
   }
 
-  // Reset to page 1 when filters change
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [accountFilter, searchQuery, dateRange, typeFilter, minAmount, maxAmount])
-
   const {
     data: response,
     isLoading,
     isFetching,
-    error,
+    error: transactionsError,
   } = useQuery({
-    queryKey: ["category-transactions-by-rules", id, queryParams],
-    queryFn: () => categoriesApi.getTransactionsByRules(id, queryParams),
-    enabled: !!id && !!category,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    queryKey: ["snapshot-transactions", id, queryParams],
+    queryFn: () => snapshotsApi.getTransactions(id, queryParams),
+    enabled: !!id && !!snapshot,
+    staleTime: 5 * 60 * 1000,
   })
 
   const transactions = response?.data || []
   const pagination = response?.pagination
 
-  // Fetch totals (without pagination)
   const totalsParams = {
     ...(debouncedFilters.accountId && {
       accountId: debouncedFilters.accountId,
@@ -166,7 +183,7 @@ function GroupTransactionsPage() {
       maxAmount: debouncedFilters.maxAmount,
     }),
   }
-  const { data: totals, isLoading: totalsLoading } = useGroupTotals(
+  const { data: totals, isLoading: totalsLoading } = useSnapshotTotals(
     id,
     totalsParams
   )
@@ -186,81 +203,72 @@ function GroupTransactionsPage() {
     setDetailsSheetOpen(true)
   }
 
-  const handleRemoveFromGroup = async (transactionId: string) => {
+  const handleRemoveFromSnapshot = async (transactionId: string) => {
     try {
-      await categoriesApi.removeTransaction(id, transactionId)
+      await snapshotsApi.removeTransaction(id, transactionId)
       queryClient.invalidateQueries({
-        queryKey: ["category-transactions-by-rules", id],
+        queryKey: ["snapshot-transactions", id],
       })
-      queryClient.invalidateQueries({ queryKey: ["categories"] })
-      toast.success("Transaction removed from group")
+      queryClient.invalidateQueries({ queryKey: ["snapshots", "detail", id] })
+      toast.success("Transaction removed from snapshot")
     } catch (err: any) {
-      toast.error(err?.message || "Failed to remove transaction from group")
+      toast.error(err?.message || "Failed to remove transaction")
     }
   }
 
-  const handleExcludeFromGroup = async (transactionId: string) => {
+  const handleAddCollaborator = async () => {
+    if (!newCollaboratorEmail.trim()) return
     try {
-      await categoriesApi.removeTransaction(id, transactionId)
-      queryClient.invalidateQueries({
-        queryKey: ["category-transactions-by-rules", id],
-      })
-      queryClient.invalidateQueries({ queryKey: ["categories"] })
-      toast.success("Transaction excluded from group")
+      await addCollaboratorMutation.mutateAsync(newCollaboratorEmail.trim())
+      toast.success("Collaborator added")
+      setNewCollaboratorEmail("")
     } catch (err: any) {
-      toast.error(err?.message || "Failed to exclude transaction from group")
+      toast.error(err?.message || "Failed to add collaborator")
     }
   }
 
-  const handleBackClick = () => {
-    navigate({ to: "/groups" })
-  }
-
-  const createSnapshotMutation = useCreateSnapshot()
-  const handleTakeSnapshot = async () => {
-    if (!category) return
+  const handleRemoveCollaborator = async (collaboratorId: string) => {
     try {
-      const snapshot = await createSnapshotMutation.mutateAsync({
-        groupId: id,
-      })
-      toast.success("Snapshot created")
-      navigate({ to: "/snapshots/$id", params: { id: snapshot._id } })
+      await removeCollaboratorMutation.mutateAsync(collaboratorId)
+      toast.success("Collaborator removed")
     } catch (err: any) {
-      toast.error(err?.message || "Failed to create snapshot")
+      toast.error(err?.message || "Failed to remove collaborator")
     }
   }
 
-  if (categoryError) {
+  if (snapshotError) {
     return (
       <DashboardLayout
-        currentPath="/groups"
+        currentPath="/snapshots"
         breadcrumbItems={[
           { label: "Dashboard", href: "/" },
-          { label: "Groups", href: "/groups" },
+          { label: "Snapshots", href: "/snapshots" },
           { label: "Error", isCurrentPage: true },
         ]}
       >
         <Alert variant="destructive">
           <AlertDescription>
-            Error loading group: {categoryError.message}
+            Error loading snapshot: {(snapshotError as Error).message}
           </AlertDescription>
         </Alert>
       </DashboardLayout>
     )
   }
 
-  if (categoryLoading) {
+  if (snapshotLoading) {
     return (
       <DashboardLayout
-        currentPath="/groups"
+        currentPath="/snapshots"
         breadcrumbItems={[
           { label: "Dashboard", href: "/" },
-          { label: "Groups", href: "/groups" },
+          { label: "Snapshots", href: "/snapshots" },
           { label: "Loading...", isCurrentPage: true },
         ]}
       >
         <div className="flex items-center justify-center py-8">
-          <div className="text-sm text-muted-foreground">Loading group...</div>
+          <div className="text-sm text-muted-foreground">
+            Loading snapshot...
+          </div>
         </div>
       </DashboardLayout>
     )
@@ -268,44 +276,145 @@ function GroupTransactionsPage() {
 
   return (
     <DashboardLayout
-      currentPath="/groups"
+      currentPath="/snapshots"
       breadcrumbItems={[
         { label: "Dashboard", href: "/" },
-        { label: "Groups", href: "/groups" },
-        { label: category?.name || "Group", isCurrentPage: true },
+        { label: "Snapshots", href: "/snapshots" },
+        { label: snapshot?.name || "Snapshot", isCurrentPage: true },
       ]}
     >
+      {/* Collaborators dialog */}
+      <Dialog open={collaboratorsOpen} onOpenChange={setCollaboratorsOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Collaborators
+            </DialogTitle>
+            <DialogDescription>
+              Manage who can view this snapshot.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-4">
+            {/* Current collaborators */}
+            {collaborators.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No collaborators yet.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {collaborators.map((c) => (
+                  <div
+                    key={c._id}
+                    className="flex items-center justify-between rounded border px-3 py-2"
+                  >
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium">
+                        {c.firstName} {c.lastName}
+                      </div>
+                      <div className="truncate text-xs text-muted-foreground">
+                        {c.email}
+                      </div>
+                    </div>
+                    {isOwner && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 shrink-0 text-destructive hover:text-destructive"
+                        onClick={() => handleRemoveCollaborator(c._id)}
+                        disabled={removeCollaboratorMutation.isPending}
+                      >
+                        <UserMinus className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add collaborator */}
+            {isOwner && (
+              <div className="flex gap-2 border-t pt-3">
+                <Input
+                  placeholder="Email address"
+                  value={newCollaboratorEmail}
+                  onChange={(e) => setNewCollaboratorEmail(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleAddCollaborator()
+                  }}
+                  className="flex-1"
+                />
+                <Button
+                  onClick={handleAddCollaborator}
+                  disabled={
+                    !newCollaboratorEmail.trim() ||
+                    addCollaboratorMutation.isPending
+                  }
+                  size="icon"
+                >
+                  <UserPlus className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setCollaboratorsOpen(false)}
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Card className="flex min-h-0 flex-1 flex-col">
         <CardHeader className="shrink-0">
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
               size="icon"
-              onClick={handleBackClick}
+              onClick={() => navigate({ to: "/snapshots" })}
               className="shrink-0"
             >
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <div className="flex min-w-0 flex-1 items-center gap-3">
-              <div className="shrink-0 text-3xl">{category?.icon || "💰"}</div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-3">
-                  <CardTitle>{category?.name}</CardTitle>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex items-center gap-1.5"
-                    onClick={handleTakeSnapshot}
-                    disabled={createSnapshotMutation.isPending}
-                  >
-                    <Camera className="h-4 w-4" />
-                    Snapshot
-                  </Button>
-                </div>
-                {category?.description && (
-                  <CardDescription>{category.description}</CardDescription>
-                )}
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
+              {/* Source group reference */}
+              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <span>{snapshot?.groupIcon || "💰"}</span>
+                <span>From group: {snapshot?.groupName}</span>
               </div>
+              <div className="flex items-center gap-3">
+                <CardTitle>{snapshot?.name}</CardTitle>
+                {snapshot && snapshot.ownerId !== user?.id && (
+                  <Badge
+                    variant="secondary"
+                    className="flex items-center gap-1"
+                  >
+                    <Share2 className="h-3 w-3" />
+                    Shared with you
+                  </Badge>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-1.5"
+                  onClick={() => setCollaboratorsOpen(true)}
+                >
+                  <Users className="h-4 w-4" />
+                  {collaborators.length > 0 ? (
+                    <span>{collaborators.length}</span>
+                  ) : (
+                    <span>Share</span>
+                  )}
+                </Button>
+              </div>
+              {snapshot?.description && (
+                <CardDescription>{snapshot.description}</CardDescription>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -341,11 +450,11 @@ function GroupTransactionsPage() {
               transactions={transactions}
               isLoading={isLoading}
               isFetching={isFetching}
-              error={error}
+              error={transactionsError}
               onTransactionClick={handleTransactionClick}
-              onRemoveFromGroup={handleRemoveFromGroup}
-              onExcludeFromGroup={handleExcludeFromGroup}
-              manualTransactionIds={category?.manualTransactionIds}
+              onRemoveFromGroup={handleRemoveFromSnapshot}
+              removeFromGroupLabel="Remove from snapshot"
+              manualTransactionIds={snapshot?.transactionIds}
             />
 
             {pagination && pagination.totalPages > 1 && (
