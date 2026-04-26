@@ -30,6 +30,7 @@
     "react-hook-form": "^7.71.2",
     "sonner": "^2.0.7",
     "tailwindcss": "^4.1.18",
+    "unicode-emoji-json": "^0.9.0",
     "vite-tsconfig-paths": "^5.1.4",
     "zod": "^3.25.76"
   },

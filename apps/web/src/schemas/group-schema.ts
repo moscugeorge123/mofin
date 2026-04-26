@@ -1,7 +1,15 @@
 import { z } from "zod"
 
 export const ruleSchema = z.object({
-  field: z.enum(["store", "location", "amount", "notes", "tags"]),
+  field: z.enum([
+    "store",
+    "location",
+    "amount",
+    "notes",
+    "tags",
+    "date",
+    "currency",
+  ]),
   operator: z.enum([
     "equals",
     "contains",
@@ -10,6 +18,9 @@ export const ruleSchema = z.object({
     "greaterThan",
     "lessThan",
     "between",
+    "after",
+    "before",
+    "betweenDates",
   ]),
   value: z.union([z.string(), z.number(), z.array(z.string())]),
   caseSensitive: z.boolean().optional(),

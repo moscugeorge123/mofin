@@ -196,6 +196,19 @@ function GroupTransactionsPage() {
     }
   }
 
+  const handleExcludeFromGroup = async (transactionId: string) => {
+    try {
+      await categoriesApi.removeTransaction(id, transactionId)
+      queryClient.invalidateQueries({
+        queryKey: ["category-transactions-by-rules", id],
+      })
+      queryClient.invalidateQueries({ queryKey: ["categories"] })
+      toast.success("Transaction excluded from group")
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to exclude transaction from group")
+    }
+  }
+
   const handleBackClick = () => {
     navigate({ to: "/groups" })
   }
@@ -301,6 +314,7 @@ function GroupTransactionsPage() {
               error={error}
               onTransactionClick={handleTransactionClick}
               onRemoveFromGroup={handleRemoveFromGroup}
+              onExcludeFromGroup={handleExcludeFromGroup}
               manualTransactionIds={category?.manualTransactionIds}
             />
 

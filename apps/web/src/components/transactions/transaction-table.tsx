@@ -38,6 +38,7 @@ interface TransactionTableProps {
   selectedTransactions?: string[]
   onSelectionChange?: (transactionIds: string[]) => void
   onRemoveFromGroup?: (transactionId: string) => void
+  onExcludeFromGroup?: (transactionId: string) => void
   manualTransactionIds?: string[]
 }
 
@@ -50,6 +51,7 @@ export function TransactionTable({
   selectedTransactions = [],
   onSelectionChange,
   onRemoveFromGroup,
+  onExcludeFromGroup,
   manualTransactionIds = [],
 }: TransactionTableProps) {
   const manualSet = new Set(manualTransactionIds)
@@ -290,8 +292,11 @@ export function TransactionTable({
                           size="sm"
                           className={"h-7 w-7 p-0"}
                           hidden={
-                            !!onRemoveFromGroup &&
-                            !manualSet.has(transaction._id)
+                            !onRemoveFromGroup && !onExcludeFromGroup
+                              ? false
+                              : !!onRemoveFromGroup &&
+                                !onExcludeFromGroup &&
+                                !manualSet.has(transaction._id)
                           }
                         >
                           <span className="sr-only">Open actions</span>
@@ -317,6 +322,17 @@ export function TransactionTable({
                               }
                             >
                               Remove from group
+                            </DropdownMenuItem>
+                          )}
+                        {onExcludeFromGroup &&
+                          !manualSet.has(transaction._id) && (
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onSelect={() =>
+                                onExcludeFromGroup(transaction._id)
+                              }
+                            >
+                              Exclude
                             </DropdownMenuItem>
                           )}
                       </DropdownMenuContent>

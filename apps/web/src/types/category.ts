@@ -32,6 +32,7 @@ export interface Category {
   icon?: string
   transactionCount?: number
   manualTransactionIds?: string[]
+  excludedTransactionIds?: string[]
   createdAt: string
   updatedAt: string
 }
