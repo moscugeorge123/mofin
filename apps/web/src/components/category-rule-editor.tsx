@@ -8,6 +8,7 @@ import {
   SelectValue,
 } from "@workspace/ui/components/select"
 import { Plus, Trash2 } from "lucide-react"
+import { useTransactionCurrencies } from "../hooks/use-transactions"
 import type { CategoryRule } from "../types/category"
 
 interface CategoryRuleEditorProps {
@@ -15,10 +16,38 @@ interface CategoryRuleEditorProps {
   onRulesChange: (rules: CategoryRule[]) => void
 }
 
+const FIELD_OPERATORS: Record<
+  CategoryRule["field"],
+  CategoryRule["operator"][]
+> = {
+  store: ["equals", "contains", "startsWith", "endsWith"],
+  location: ["equals", "contains", "startsWith", "endsWith"],
+  notes: ["equals", "contains", "startsWith", "endsWith"],
+  tags: ["equals"],
+  amount: ["equals", "greaterThan", "lessThan", "between"],
+  date: ["after", "before", "betweenDates"],
+  currency: ["equals"],
+}
+
+const OPERATOR_LABELS: Record<CategoryRule["operator"], string> = {
+  equals: "Equals",
+  contains: "Contains",
+  startsWith: "Starts With",
+  endsWith: "Ends With",
+  greaterThan: "Greater Than",
+  lessThan: "Less Than",
+  between: "Between",
+  after: "After",
+  before: "Before",
+  betweenDates: "Between",
+}
+
 export function CategoryRuleEditor({
   rules,
   onRulesChange,
 }: CategoryRuleEditorProps) {
+  const { data: currencies = [] } = useTransactionCurrencies()
+
   const addRule = () => {
     const newRule: CategoryRule = {
       field: "store",
@@ -37,6 +66,13 @@ export function CategoryRuleEditor({
     const newRules = [...rules]
     newRules[index] = { ...newRules[index], ...updates }
     onRulesChange(newRules)
+  }
+
+  const handleFieldChange = (index: number, field: CategoryRule["field"]) => {
+    const defaultOperator = FIELD_OPERATORS[field][0]
+    const defaultValue =
+      field === "date" && defaultOperator === "betweenDates" ? ["", ""] : ""
+    updateRule(index, { field, operator: defaultOperator, value: defaultValue })
   }
 
   return (
@@ -65,13 +101,12 @@ export function CategoryRuleEditor({
               key={index}
               className="grid grid-cols-12 items-start gap-2 rounded-md border p-3"
             >
+              {/* Field */}
               <div className="col-span-3">
                 <Select
                   value={rule.field}
                   onValueChange={(value) =>
-                    updateRule(index, {
-                      field: value as CategoryRule["field"],
-                    })
+                    handleFieldChange(index, value as CategoryRule["field"])
                   }
                 >
                   <SelectTrigger className="h-9 w-full">
@@ -83,16 +118,25 @@ export function CategoryRuleEditor({
                     <SelectItem value="amount">Amount</SelectItem>
                     <SelectItem value="notes">Notes</SelectItem>
                     <SelectItem value="tags">Tags</SelectItem>
+                    <SelectItem value="date">Date</SelectItem>
+                    <SelectItem value="currency">Currency</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
+              {/* Operator */}
               <div className="col-span-3">
                 <Select
                   value={rule.operator}
                   onValueChange={(value) =>
                     updateRule(index, {
                       operator: value as CategoryRule["operator"],
+                      value:
+                        value === "betweenDates"
+                          ? ["", ""]
+                          : value === "between"
+                            ? ["", ""]
+                            : "",
                     })
                   }
                 >
@@ -100,19 +144,69 @@ export function CategoryRuleEditor({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="equals">Equals</SelectItem>
-                    <SelectItem value="contains">Contains</SelectItem>
-                    <SelectItem value="startsWith">Starts With</SelectItem>
-                    <SelectItem value="endsWith">Ends With</SelectItem>
-                    <SelectItem value="greaterThan">Greater Than</SelectItem>
-                    <SelectItem value="lessThan">Less Than</SelectItem>
-                    <SelectItem value="between">Between</SelectItem>
+                    {FIELD_OPERATORS[rule.field].map((op) => (
+                      <SelectItem key={op} value={op}>
+                        {OPERATOR_LABELS[op]}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
 
+              {/* Value */}
               <div className="col-span-5">
-                {rule.operator === "between" ? (
+                {rule.field === "currency" ? (
+                  <Select
+                    value={typeof rule.value === "string" ? rule.value : ""}
+                    onValueChange={(value) => updateRule(index, { value })}
+                  >
+                    <SelectTrigger className="h-9 w-full">
+                      <SelectValue placeholder="Select currency" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {currencies.map((c) => (
+                        <SelectItem key={c} value={c}>
+                          {c}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : rule.field === "date" &&
+                  rule.operator === "betweenDates" ? (
+                  <div className="flex gap-1">
+                    <Input
+                      type="date"
+                      value={Array.isArray(rule.value) ? rule.value[0] : ""}
+                      onChange={(e) => {
+                        const newValue = Array.isArray(rule.value)
+                          ? [e.target.value, rule.value[1] || ""]
+                          : [e.target.value, ""]
+                        updateRule(index, { value: newValue })
+                      }}
+                      className="h-9"
+                    />
+                    <Input
+                      type="date"
+                      value={Array.isArray(rule.value) ? rule.value[1] : ""}
+                      onChange={(e) => {
+                        const newValue = Array.isArray(rule.value)
+                          ? [rule.value[0] || "", e.target.value]
+                          : ["", e.target.value]
+                        updateRule(index, { value: newValue })
+                      }}
+                      className="h-9"
+                    />
+                  </div>
+                ) : rule.field === "date" ? (
+                  <Input
+                    type="date"
+                    value={typeof rule.value === "string" ? rule.value : ""}
+                    onChange={(e) =>
+                      updateRule(index, { value: e.target.value })
+                    }
+                    className="h-9"
+                  />
+                ) : rule.operator === "between" ? (
                   <div className="flex gap-1">
                     <Input
                       type="number"
@@ -144,13 +238,17 @@ export function CategoryRuleEditor({
                     type={
                       rule.field === "amount" &&
                       (rule.operator === "greaterThan" ||
-                        rule.operator === "lessThan")
+                        rule.operator === "lessThan" ||
+                        rule.operator === "equals")
                         ? "number"
                         : "text"
                     }
                     placeholder="Value"
                     value={
-                      typeof rule.value === "string" ? rule.value : rule.value
+                      typeof rule.value === "string" ||
+                      typeof rule.value === "number"
+                        ? rule.value
+                        : ""
                     }
                     onChange={(e) =>
                       updateRule(index, { value: e.target.value })

@@ -205,6 +205,88 @@ export class CategoryController {
     }
   }
 
+  // Add a transaction manually to a group
+  static async addTransaction(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = (req as any).user.id;
+      const { id, transactionId } = req.params;
+
+      const category = await CategoryModel.findById(id);
+
+      if (!category) {
+        res.status(404).json({ error: 'Category not found' });
+        return;
+      }
+
+      if (!category.userId.equals(new mongoose.Types.ObjectId(userId))) {
+        res.status(403).json({ error: 'Access denied' });
+        return;
+      }
+
+      const txnObjectId = new mongoose.Types.ObjectId(transactionId as string);
+
+      const alreadyAdded = category.manualTransactionIds.some((t) =>
+        t.equals(txnObjectId),
+      );
+
+      if (!alreadyAdded) {
+        category.manualTransactionIds.push(txnObjectId);
+        await category.save();
+      }
+
+      res.json({ message: 'Transaction added to group successfully' });
+    } catch (error: any) {
+      catchMongoValidation(error, res);
+    }
+  }
+
+  // Remove a manually added transaction from a group
+  static async removeTransaction(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const userId = (req as any).user.id;
+      const { id, transactionId } = req.params;
+
+      const category = await CategoryModel.findById(id);
+
+      if (!category) {
+        res.status(404).json({ error: 'Category not found' });
+        return;
+      }
+
+      if (!category.userId.equals(new mongoose.Types.ObjectId(userId))) {
+        res.status(403).json({ error: 'Access denied' });
+        return;
+      }
+
+      const txnObjectId = new mongoose.Types.ObjectId(transactionId as string);
+
+      // Remove from manual list (if it was manually added)
+      category.manualTransactionIds = category.manualTransactionIds.filter(
+        (t) => !t.equals(txnObjectId),
+      );
+
+      // Add to exclusion list (prevents rule-matched transactions from appearing)
+      const alreadyExcluded = (category.excludedTransactionIds || []).some(
+        (t) => t.equals(txnObjectId),
+      );
+      if (!alreadyExcluded) {
+        (category.excludedTransactionIds as mongoose.Types.ObjectId[]).push(
+          txnObjectId,
+        );
+      }
+
+      await category.save();
+
+      res.json({ message: 'Transaction removed from group successfully' });
+    } catch (error: any) {
+      catchMongoValidation(error, res);
+    }
+  }
+
   // Get transactions that match category rules (with pagination and filters)
   static async getTransactionsByRules(
     req: Request,
@@ -290,9 +372,38 @@ export class CategoryController {
         .sort({ date: -1 });
 
       // Filter transactions by category rules
-      const matchingTransactions = allTransactions.filter((transaction) =>
-        category.matchesTransaction(transaction),
+      const excludedIds = new Set(
+        (category.excludedTransactionIds || []).map((id) => id.toString()),
       );
+
+      const ruleMatched = allTransactions.filter(
+        (transaction) =>
+          category.matchesTransaction(transaction) &&
+          !excludedIds.has(transaction._id.toString()),
+      );
+
+      // Also fetch manually added transactions not already in the rule-matched set
+      const ruleMatchedIds = new Set(
+        ruleMatched.map((t: any) => t._id.toString()),
+      );
+      const manualIds = (category.manualTransactionIds || []).map((id) =>
+        id.toString(),
+      );
+      const missingManualIds = manualIds.filter(
+        (id) => !ruleMatchedIds.has(id) && !excludedIds.has(id),
+      );
+
+      let manualTransactions: any[] = [];
+      if (missingManualIds.length > 0) {
+        manualTransactions = await TransactionModel.find({
+          _id: { $in: missingManualIds },
+        })
+          .populate(['accountId', 'category', 'tags'])
+          .sort({ date: -1 });
+      }
+
+      // Merge: rule-matched first, then manual-only additions
+      const matchingTransactions = [...ruleMatched, ...manualTransactions];
 
       // Apply pagination after filtering
       const pageNumber = parseInt(page as string) || 1;
@@ -313,6 +424,168 @@ export class CategoryController {
           total: totalCount,
           totalPages: Math.ceil(totalCount / pageSize),
         },
+      });
+    } catch (error: any) {
+      catchMongoValidation(error, res);
+    }
+  }
+
+  // Get totals (credit/debit/byCurrency) for transactions matching category rules
+  static async getTransactionsByRulesTotals(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const userId = (req as any).user.id;
+      const { id } = req.params;
+      const {
+        accountId,
+        startDate,
+        endDate,
+        status,
+        search,
+        creditDebitIndicator,
+        minAmount,
+        maxAmount,
+      } = req.query;
+
+      const category = await CategoryModel.findById(id);
+
+      if (!category) {
+        res.status(404).json({ error: 'Category not found' });
+        return;
+      }
+
+      if (!category.userId.equals(new mongoose.Types.ObjectId(userId))) {
+        res.status(403).json({ error: 'Access denied' });
+        return;
+      }
+
+      const BankAccountModel = mongoose.model('BankAccount');
+      const TransactionModel = mongoose.model('Transaction');
+
+      const accessibleAccounts = await BankAccountModel.find({
+        $or: [
+          { owner: new mongoose.Types.ObjectId(userId) },
+          { sharedWith: new mongoose.Types.ObjectId(userId) },
+        ],
+      });
+      const accessibleAccountIds = accessibleAccounts.map(
+        (acc: any) => acc._id,
+      );
+
+      let query: any = { accountId: { $in: accessibleAccountIds } };
+
+      if (accountId) query.accountId = accountId;
+      if (status) query.status = status;
+      if (creditDebitIndicator)
+        query.creditDebitIndicator = creditDebitIndicator;
+
+      if (startDate || endDate) {
+        query.date = {};
+        if (startDate) query.date.$gte = new Date(startDate as string);
+        if (endDate) query.date.$lte = new Date(endDate as string);
+      }
+
+      if (search) {
+        query.$or = [
+          { store: { $regex: search, $options: 'i' } },
+          { notes: { $regex: search, $options: 'i' } },
+        ];
+      }
+
+      if (minAmount || maxAmount) {
+        query['amount.sum'] = {};
+        if (minAmount)
+          query['amount.sum'].$gte = parseFloat(minAmount as string);
+        if (maxAmount)
+          query['amount.sum'].$lte = parseFloat(maxAmount as string);
+      }
+
+      const allTransactions = await TransactionModel.find(query).sort({
+        date: -1,
+      });
+
+      const ruleMatched = allTransactions.filter((transaction) =>
+        category.matchesTransaction(transaction),
+      );
+
+      const excludedIdsForTotals = new Set(
+        (category.excludedTransactionIds || []).map((id) => id.toString()),
+      );
+
+      const ruleMatchedFiltered = ruleMatched.filter(
+        (t: any) => !excludedIdsForTotals.has(t._id.toString()),
+      );
+
+      const ruleMatchedIds = new Set(
+        ruleMatchedFiltered.map((t: any) => t._id.toString()),
+      );
+      const manualIds = (category.manualTransactionIds || []).map((id) =>
+        id.toString(),
+      );
+      const missingManualIds = manualIds.filter(
+        (id) => !ruleMatchedIds.has(id) && !excludedIdsForTotals.has(id),
+      );
+
+      let manualTransactions: any[] = [];
+      if (missingManualIds.length > 0) {
+        manualTransactions = await TransactionModel.find({
+          _id: { $in: missingManualIds },
+        }).sort({ date: -1 });
+      }
+
+      const matchingTransactions = [
+        ...ruleMatchedFiltered,
+        ...manualTransactions,
+      ];
+
+      // Compute totals
+      let credit = 0;
+      let debit = 0;
+      const byCurrency: Record<string, { credit: number; debit: number }> = {};
+
+      const { getCurrencyRates } =
+        await import('../services/currency-rates.service');
+      const currencyRates = getCurrencyRates();
+
+      for (const t of matchingTransactions) {
+        const amount: number = t.amount?.sum ?? 0;
+        const currency: string = t.amount?.currency ?? 'RON';
+        const isCredit = t.creditDebitIndicator === 'Credit';
+
+        if (!byCurrency[currency])
+          byCurrency[currency] = { credit: 0, debit: 0 };
+
+        if (isCredit) {
+          byCurrency[currency].credit += amount;
+        } else {
+          byCurrency[currency].debit += amount;
+        }
+
+        // Convert to RON
+        let amountInRON = amount;
+        if (currency !== 'RON' && currencyRates) {
+          const rateKey = `${currency}_RON` as keyof typeof currencyRates;
+          const rate = currencyRates[rateKey];
+          if (typeof rate === 'number') {
+            amountInRON = amount * rate;
+          }
+        }
+
+        if (isCredit) {
+          credit += amountInRON;
+        } else {
+          debit += amountInRON;
+        }
+      }
+
+      res.json({
+        credit,
+        debit,
+        balance: credit - debit,
+        byCurrency,
       });
     } catch (error: any) {
       catchMongoValidation(error, res);

@@ -39,9 +39,8 @@ export class ChatGPTReceiptService {
   }
 
   /**
-   * Extract receipt details from an image or PDF buffer using ChatGPT Vision
-   * @param base64File - Buffer containing the receipt image or PDF
-   * @param mimeType - MIME type of the file (e.g., 'image/jpeg', 'image/png', 'application/pdf')
+   * Extract receipt details from an image or PDF using ChatGPT Vision
+   * @param path - Path to the receipt file
    * @returns Parsed receipt data
    */
   async extractReceiptDetails(path: string): Promise<ReceiptData> {
@@ -54,51 +53,66 @@ export class ChatGPTReceiptService {
         throw new Error('OpenAI client is not initialized');
       }
 
-      const file = await this.openai.files.create({
-        file: fs.createReadStream(path),
-        purpose: 'user_data',
-      });
+      // Read the file and convert to base64
+      const fileBuffer = fs.readFileSync(path);
+      const base64File = fileBuffer.toString('base64');
 
-      const response = await this.openai.responses.create({
-        model: 'gpt-4.1-mini', // Using GPT-4o which supports vision
-        input: [
+      // Determine mime type from file extension
+      let mimeType = 'image/jpeg';
+      if (path.endsWith('.png')) {
+        mimeType = 'image/png';
+      } else if (path.endsWith('.webp')) {
+        mimeType = 'image/webp';
+      } else if (path.endsWith('.pdf')) {
+        mimeType = 'application/pdf';
+      }
+
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-5-mini',
+        messages: [
           {
             role: 'system',
             content:
-              'You are a receipt parsing expert. Extract all information accurately and return ONLY valid JSON without any markdown formatting or additional text.',
+              'You are a receipt parsing expert. Extract all information accurately from the receipt image.',
           },
           {
             role: 'user',
             content: [
               {
-                type: 'input_text',
+                type: 'text',
                 text: prompt,
               },
               {
-                type: 'input_file',
-                file_id: file.id,
+                type: 'image_url',
+                image_url: {
+                  url: `data:${mimeType};base64,${base64File}`,
+                },
               },
             ],
           },
         ],
-        // max_tokens: 2000,
-        temperature: 0.1, // Low temperature for more consistent outputs
+        response_format: {
+          type: 'json_schema',
+          json_schema: {
+            name: 'receipt_extraction',
+            strict: true,
+            schema: this.getReceiptSchema(),
+          },
+        },
       });
 
       // Extract the response
-      const content = response.output_text?.trim();
+      const content = response.choices[0]?.message?.content?.trim();
 
       if (!content) {
         throw new Error('No response from ChatGPT');
       }
 
       // Parse the JSON response
-      const receiptData = this.parseGPTResponse(content);
+      const receiptData = JSON.parse(content) as ReceiptData;
 
       // Validate the response structure
       this.validateReceiptData(receiptData);
-
-      await this.openai.files.delete(file.id);
 
       return receiptData;
     } catch (error: any) {
@@ -169,26 +183,75 @@ Return ONLY the JSON object, nothing else.
   }
 
   /**
-   * Parse ChatGPT response and extract JSON
+   * Get the JSON schema for receipt extraction
+   * This schema is used with OpenAI's Chat Completions API for structured outputs
    */
-  private parseGPTResponse(content: string): ReceiptData {
-    try {
-      // Remove markdown code blocks if present
-      let jsonString = content.trim();
-
-      // Remove ```json and ``` if present
-      jsonString = jsonString.replace(/^```json?\s*/i, '');
-      jsonString = jsonString.replace(/```\s*$/, '');
-      jsonString = jsonString.trim();
-
-      // Parse the JSON
-      const parsed = JSON.parse(jsonString);
-
-      return parsed as ReceiptData;
-    } catch (error) {
-      console.error('Failed to parse GPT response:', content);
-      throw new Error('Invalid JSON response from ChatGPT');
-    }
+  private getReceiptSchema() {
+    return {
+      type: 'object',
+      properties: {
+        price: {
+          type: 'number',
+          description: 'Total price (final amount paid)',
+        },
+        store: {
+          type: 'string',
+          description: 'Store name',
+        },
+        location: {
+          type: 'string',
+          description: 'Store location/address',
+        },
+        date: {
+          type: 'string',
+          pattern: '^\\d{4}-\\d{2}-\\d{2}$',
+          description: 'Transaction date in YYYY-MM-DD format',
+        },
+        products: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              name: {
+                type: 'string',
+                description: 'Product name',
+              },
+              price: {
+                type: 'number',
+                description: 'Final price paid for this product',
+              },
+              quantity: {
+                type: 'number',
+                description: 'Numeric quantity purchased',
+              },
+              quantityType: {
+                type: 'string',
+                enum: [
+                  'KG',
+                  'G',
+                  'L',
+                  'ML',
+                  'PCS',
+                  'BUC',
+                  'UNIT',
+                  'BOX',
+                  'PACK',
+                ],
+                description: 'Unit of measurement',
+              },
+              discount: {
+                type: ['number', 'null'],
+                description: 'Discount amount in currency units (optional)',
+              },
+            },
+            required: ['name', 'price', 'quantity', 'quantityType'],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ['price', 'store', 'location', 'date', 'products'],
+      additionalProperties: false,
+    };
   }
 
   /**
@@ -256,7 +319,7 @@ Return ONLY the JSON object, nothing else.
       }
 
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: 'gpt-5-mini',
         messages: [
           {
             role: 'user',

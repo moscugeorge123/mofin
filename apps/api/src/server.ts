@@ -5,6 +5,7 @@ import { connectToDatabase } from './database/connection';
 import { errorHandler } from './middlewares/error-handler';
 import bankAccountRoutes from './routes/bank-account.routes';
 import categoryRoutes from './routes/category.routes';
+import currencyRatesRoutes from './routes/currency-rates.routes';
 import productRoutes from './routes/product.routes';
 import receiptExtractionRoutes from './routes/receipt-extraction.routes';
 import receiptProductRoutes from './routes/receipt-product.routes';
@@ -12,9 +13,13 @@ import receiptRoutes from './routes/receipt.routes';
 import tagRoutes from './routes/tag.routes';
 import transactionRoutes from './routes/transactions.routes';
 import userRoutes from './routes/user.routes';
+import { fetchCurrencyRates } from './services/currency-rates.service';
 
 // Connect to the database
-connectToDatabase().then(() => {
+connectToDatabase().then(async () => {
+  await fetchCurrencyRates().catch((err) =>
+    console.error('⚠️  Failed to fetch currency rates:', err.message),
+  );
   const app = express();
 
   app.use(cors());
@@ -34,11 +39,16 @@ connectToDatabase().then(() => {
   app.use('/api/receipts', receiptRoutes);
   app.use('/api/receipt-products', receiptProductRoutes);
   app.use('/api/receipt-extraction', receiptExtractionRoutes);
+  app.use('/api/currency-rates', currencyRatesRoutes);
 
   // Global error handler (should be after routes)
   app.use(errorHandler);
 
-  app.listen(config.port, () => {
+  app.listen(config.port, (error) => {
+    if (error) {
+      console.error('❌ Failed to start server:', error);
+      process.exit(1);
+    }
     console.log(`✅ Server running on port ${config.port}`);
   });
 });

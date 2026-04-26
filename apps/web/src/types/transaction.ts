@@ -53,6 +53,7 @@ export interface TransactionsQueryParams {
   creditDebitIndicator?: "Credit" | "Debit"
   minAmount?: string
   maxAmount?: string
+  currency?: string
   page?: number
   limit?: number
 }

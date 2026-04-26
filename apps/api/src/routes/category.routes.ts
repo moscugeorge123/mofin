@@ -28,11 +28,29 @@ router.get(
   CategoryController.getTransactionsByRules,
 );
 
+// Get totals for transactions matching category rules
+router.get(
+  '/:id/transactions/by-rules/totals',
+  CategoryController.getTransactionsByRulesTotals,
+);
+
 // Get transactions for a category
 router.get('/:id/transactions', CategoryController.getTransactions);
 
 // Apply category to a transaction
 router.post('/:id/apply', CategoryController.applyToTransaction);
+
+// Add a transaction manually to a group
+router.post(
+  '/:id/transactions/:transactionId',
+  CategoryController.addTransaction,
+);
+
+// Remove a manually added transaction from a group
+router.delete(
+  '/:id/transactions/:transactionId',
+  CategoryController.removeTransaction,
+);
 
 // Update transaction count
 router.post('/:id/update-count', CategoryController.updateCount);

@@ -84,6 +84,7 @@ export class TransactionController {
         creditDebitIndicator,
         minAmount,
         maxAmount,
+        currency,
         page,
         limit,
       } = req.query;
@@ -101,6 +102,7 @@ export class TransactionController {
       if (status) query.status = status;
       if (creditDebitIndicator)
         query.creditDebitIndicator = creditDebitIndicator;
+      if (currency) query['amount.currency'] = currency;
 
       if (startDate || endDate) {
         query.date = {};
@@ -150,6 +152,26 @@ export class TransactionController {
       });
     } catch (error: any) {
       catchMongoValidation(error, res);
+    }
+  }
+
+  // Get distinct currencies used in transactions for the authenticated user
+  static async getCurrencies(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = (req as any).user.id;
+
+      const accessibleAccounts = await BankAccountModel.findAccessibleByUser(
+        new mongoose.Types.ObjectId(userId),
+      );
+      const accessibleAccountIds = accessibleAccounts.map((acc) => acc._id);
+
+      const currencies = await TransactionModel.distinct('amount.currency', {
+        accountId: { $in: accessibleAccountIds },
+      });
+
+      res.json((currencies as string[]).sort());
+    } catch (error: any) {
+      next(error);
     }
   }
 
@@ -643,6 +665,7 @@ export class TransactionController {
         creditDebitIndicator,
         minAmount,
         maxAmount,
+        currency,
       } = req.query;
 
       // Get all accounts the user has access to
@@ -658,6 +681,7 @@ export class TransactionController {
       if (status) query.status = status;
       if (creditDebitIndicator)
         query.creditDebitIndicator = creditDebitIndicator;
+      if (currency) query['amount.currency'] = currency;
 
       if (startDate || endDate) {
         query.date = {};
@@ -682,33 +706,72 @@ export class TransactionController {
           query['amount.sum'].$lte = parseFloat(maxAmount as string);
       }
 
-      // Calculate totals using aggregation
+      // Calculate totals by currency and credit/debit indicator
       const totals = await TransactionModel.aggregate([
         { $match: query },
         {
           $group: {
-            _id: '$creditDebitIndicator',
+            _id: {
+              creditDebitIndicator: '$creditDebitIndicator',
+              currency: '$amount.currency',
+            },
             total: { $sum: '$amount.sum' },
           },
         },
       ]);
 
-      // Format the response
-      let creditTotal = 0;
-      let debitTotal = 0;
+      // Get currency rates from database
+      const { getCurrencyRates } =
+        await import('../services/currency-rates.service');
+      const currencyRates = getCurrencyRates();
+
+      // Calculate totals in RON and by currency
+      const currencyBreakdown: Record<
+        string,
+        { credit: number; debit: number }
+      > = {};
+      let creditTotalRON = 0;
+      let debitTotalRON = 0;
 
       totals.forEach((item) => {
-        if (item._id === 'Credit') {
-          creditTotal = item.total;
-        } else if (item._id === 'Debit') {
-          debitTotal = item.total;
+        const { creditDebitIndicator, currency } = item._id;
+        const amount = item.total;
+
+        // Initialize currency in breakdown if not exists
+        if (!currencyBreakdown[currency]) {
+          currencyBreakdown[currency] = { credit: 0, debit: 0 };
+        }
+
+        // Add to currency breakdown
+        if (creditDebitIndicator === 'Credit') {
+          currencyBreakdown[currency].credit = amount;
+        } else {
+          currencyBreakdown[currency].debit = amount;
+        }
+
+        // Convert to RON
+        let amountInRON = amount;
+        if (currency !== 'RON' && currencyRates) {
+          const rateKey = `${currency}_RON` as keyof typeof currencyRates;
+          const rate = currencyRates[rateKey];
+          if (typeof rate === 'number') {
+            amountInRON = amount * rate;
+          }
+        }
+
+        // Add to RON totals
+        if (creditDebitIndicator === 'Credit') {
+          creditTotalRON += amountInRON;
+        } else {
+          debitTotalRON += amountInRON;
         }
       });
 
       res.json({
-        credit: creditTotal,
-        debit: debitTotal,
-        balance: creditTotal - debitTotal,
+        credit: creditTotalRON,
+        debit: debitTotalRON,
+        balance: creditTotalRON - debitTotalRON,
+        byCurrency: currencyBreakdown,
       });
     } catch (error: any) {
       console.error('Error calculating transaction totals:', error);
@@ -739,33 +802,72 @@ export class TransactionController {
         return;
       }
 
-      // Calculate totals for transactions in this file
+      // Calculate totals by currency and credit/debit indicator
       const totals = await TransactionModel.aggregate([
         { $match: { _id: { $in: transactionFile.transactions } } },
         {
           $group: {
-            _id: '$creditDebitIndicator',
+            _id: {
+              creditDebitIndicator: '$creditDebitIndicator',
+              currency: '$amount.currency',
+            },
             total: { $sum: '$amount.sum' },
           },
         },
       ]);
 
-      // Format the response
-      let creditTotal = 0;
-      let debitTotal = 0;
+      // Get currency rates from database
+      const { getCurrencyRates } =
+        await import('../services/currency-rates.service');
+      const currencyRates = getCurrencyRates();
+
+      // Calculate totals in RON and by currency
+      const currencyBreakdown: Record<
+        string,
+        { credit: number; debit: number }
+      > = {};
+      let creditTotalRON = 0;
+      let debitTotalRON = 0;
 
       totals.forEach((item) => {
-        if (item._id === 'Credit') {
-          creditTotal = item.total;
-        } else if (item._id === 'Debit') {
-          debitTotal = item.total;
+        const { creditDebitIndicator, currency } = item._id;
+        const amount = item.total;
+
+        // Initialize currency in breakdown if not exists
+        if (!currencyBreakdown[currency]) {
+          currencyBreakdown[currency] = { credit: 0, debit: 0 };
+        }
+
+        // Add to currency breakdown
+        if (creditDebitIndicator === 'Credit') {
+          currencyBreakdown[currency].credit = amount;
+        } else {
+          currencyBreakdown[currency].debit = amount;
+        }
+
+        // Convert to RON
+        let amountInRON = amount;
+        if (currency !== 'RON' && currencyRates) {
+          const rateKey = `${currency}_RON` as keyof typeof currencyRates;
+          const rate = currencyRates[rateKey];
+          if (typeof rate === 'number') {
+            amountInRON = amount * rate;
+          }
+        }
+
+        // Add to RON totals
+        if (creditDebitIndicator === 'Credit') {
+          creditTotalRON += amountInRON;
+        } else {
+          debitTotalRON += amountInRON;
         }
       });
 
       res.json({
-        credit: creditTotal,
-        debit: debitTotal,
-        balance: creditTotal - debitTotal,
+        credit: creditTotalRON,
+        debit: debitTotalRON,
+        balance: creditTotalRON - debitTotalRON,
+        byCurrency: currencyBreakdown,
       });
     } catch (error: any) {
       console.error('Error calculating file totals:', error);

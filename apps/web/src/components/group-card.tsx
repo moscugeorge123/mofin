@@ -8,6 +8,8 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 import { Pencil, Trash2 } from "lucide-react"
+import { useGroupTotals } from "../hooks/use-categories"
+import { formatNumber } from "../lib/utils"
 import type { Category } from "../types/category"
 
 interface GroupCardProps {
@@ -23,6 +25,9 @@ export function GroupCard({
   onDelete,
   onClick,
 }: GroupCardProps) {
+  const { data: totals, isLoading: totalsLoading } = useGroupTotals(
+    category._id
+  )
   return (
     <Card
       className="flex h-full cursor-pointer flex-col transition-shadow hover:shadow-md"
@@ -76,6 +81,62 @@ export function GroupCard({
           <span className="text-sm text-muted-foreground">Transactions</span>
           <Badge variant="secondary">{category.transactionCount || 0}</Badge>
         </div>
+
+        {/* Currency breakdown */}
+        {totalsLoading ? (
+          <div className="h-6 animate-pulse rounded bg-muted" />
+        ) : totals &&
+          totals.byCurrency &&
+          Object.keys(totals.byCurrency).length > 0 ? (
+          <div className="flex flex-col gap-1">
+            {Object.entries(totals.byCurrency).map(([currency, amounts]) => {
+              const balance = amounts.credit - amounts.debit
+              return (
+                <div
+                  key={currency}
+                  className="flex items-center justify-between text-xs"
+                >
+                  <span className="font-semibold text-muted-foreground">
+                    {currency}
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-green-600">
+                      ↑{formatNumber(amounts.credit)}
+                    </span>
+                    <span className="text-red-600">
+                      ↓{formatNumber(amounts.debit)}
+                    </span>
+                    <span className="text-muted-foreground">=</span>
+                    <span
+                      className={`font-semibold ${balance >= 0 ? "text-green-600" : "text-red-600"}`}
+                    >
+                      {formatNumber(balance)}
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+            <div className="flex items-center justify-between border-t pt-1 text-xs">
+              <span className="font-semibold text-muted-foreground">
+                Total RON
+              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-green-600">
+                  ↑{formatNumber(totals.credit)}
+                </span>
+                <span className="text-red-600">
+                  ↓{formatNumber(totals.debit)}
+                </span>
+                <span className="text-muted-foreground">=</span>
+                <span
+                  className={`font-semibold ${totals.balance >= 0 ? "text-green-600" : "text-red-600"}`}
+                >
+                  {formatNumber(totals.balance)}
+                </span>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         {/* Rules Section */}
         <div className="mt-auto">

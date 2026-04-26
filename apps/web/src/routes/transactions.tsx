@@ -56,6 +56,7 @@ function TransactionsPage() {
   const [typeFilter, setTypeFilter] = useState<string>("all")
   const [minAmount, setMinAmount] = useState("")
   const [maxAmount, setMaxAmount] = useState("")
+  const [currencyFilter, setCurrencyFilter] = useState("all")
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1)
@@ -70,6 +71,7 @@ function TransactionsPage() {
     creditDebitIndicator: undefined as "Credit" | "Debit" | undefined,
     minAmount: "",
     maxAmount: "",
+    currency: undefined as string | undefined,
   })
 
   // Build filter params and debounce them (excluding pagination)
@@ -88,13 +90,22 @@ function TransactionsPage() {
             : undefined,
         minAmount,
         maxAmount,
+        currency: currencyFilter !== "all" ? currencyFilter : undefined,
       }
 
       setDebouncedFilters(filters)
     }, 200)
 
     return () => clearTimeout(timer)
-  }, [accountFilter, searchQuery, dateRange, typeFilter, minAmount, maxAmount])
+  }, [
+    accountFilter,
+    searchQuery,
+    dateRange,
+    typeFilter,
+    minAmount,
+    maxAmount,
+    currencyFilter,
+  ])
 
   // Build final params from debounced filters + immediate pagination
   const queryParams: TransactionsQueryParams = {
@@ -127,10 +138,22 @@ function TransactionsPage() {
     queryParams.maxAmount = debouncedFilters.maxAmount
   }
 
+  if (debouncedFilters.currency) {
+    queryParams.currency = debouncedFilters.currency
+  }
+
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [accountFilter, searchQuery, dateRange, typeFilter, minAmount, maxAmount])
+  }, [
+    accountFilter,
+    searchQuery,
+    dateRange,
+    typeFilter,
+    minAmount,
+    maxAmount,
+    currencyFilter,
+  ])
 
   const {
     data: response,
@@ -139,6 +162,9 @@ function TransactionsPage() {
     error,
   } = useTransactions(queryParams)
 
+  const transactions = response?.data || []
+  const pagination = response?.pagination
+
   // Get totals with the same filters but without pagination
   const totalsParams: TransactionsQueryParams = { ...queryParams }
   delete totalsParams.page
@@ -146,24 +172,6 @@ function TransactionsPage() {
 
   const { data: totals, isLoading: totalsLoading } =
     useTransactionTotals(totalsParams)
-
-  const transactions = response?.data || []
-  const pagination = response?.pagination
-
-  // Calculate selected transaction totals
-  const selectedTotals = transactions
-    .filter((t) => selectedTransactionIds.includes(t._id))
-    .reduce(
-      (acc, t) => {
-        if (t.creditDebitIndicator === "Credit") {
-          acc.credit += t.amount.sum
-        } else {
-          acc.debit += t.amount.sum
-        }
-        return acc
-      },
-      { credit: 0, debit: 0 }
-    )
 
   const handleDialogClose = (open: boolean) => {
     setUploadDialogOpen(open)
@@ -176,6 +184,7 @@ function TransactionsPage() {
     setTypeFilter("all")
     setMinAmount("")
     setMaxAmount("")
+    setCurrencyFilter("all")
   }
 
   // Clear selections when page changes
@@ -226,15 +235,12 @@ function TransactionsPage() {
             onMinAmountChange={setMinAmount}
             maxAmount={maxAmount}
             onMaxAmountChange={setMaxAmount}
+            currencyFilter={currencyFilter}
+            onCurrencyFilterChange={setCurrencyFilter}
             onClearFilters={clearFilters}
           />
 
-          <TransactionTotalsDisplay
-            isLoading={totalsLoading}
-            totals={totals}
-            selectedCount={selectedTransactionIds.length}
-            selectedTotals={selectedTotals}
-          />
+          <TransactionTotalsDisplay isLoading={totalsLoading} totals={totals} />
 
           <div className="flex min-h-0 flex-1 flex-col">
             <TransactionTable

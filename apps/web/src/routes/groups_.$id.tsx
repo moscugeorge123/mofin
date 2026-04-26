@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router"
 import { Alert, AlertDescription } from "@workspace/ui/components/alert"
 import { Button } from "@workspace/ui/components/button"
@@ -12,13 +12,15 @@ import {
 import { ArrowLeft } from "lucide-react"
 import { useEffect, useState } from "react"
 import type { DateRange } from "react-day-picker"
+import { toast } from "sonner"
 import { DashboardLayout } from "../components/dashboard-layout"
 import { TransactionDetailsSheet } from "../components/transactions/transaction-details-sheet"
 import { TransactionFilters } from "../components/transactions/transaction-filters"
 import { TransactionPagination } from "../components/transactions/transaction-pagination"
 import { TransactionTable } from "../components/transactions/transaction-table"
+import { TransactionTotalsDisplay } from "../components/transactions/transaction-totals"
 import { useBankAccounts } from "../hooks/use-bank-accounts"
-import { useCategory } from "../hooks/use-categories"
+import { useCategory, useGroupTotals } from "../hooks/use-categories"
 import { authService } from "../services/auth.service"
 import { categoriesApi } from "../services/categories.service"
 import type { Transaction } from "../types/transaction"
@@ -35,6 +37,7 @@ export const Route = createFileRoute("/groups_/$id")({
 function GroupTransactionsPage() {
   const { id } = Route.useParams()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null)
   const [detailsSheetOpen, setDetailsSheetOpen] = useState(false)
@@ -140,6 +143,32 @@ function GroupTransactionsPage() {
   const transactions = response?.data || []
   const pagination = response?.pagination
 
+  // Fetch totals (without pagination)
+  const totalsParams = {
+    ...(debouncedFilters.accountId && {
+      accountId: debouncedFilters.accountId,
+    }),
+    ...(debouncedFilters.search && { search: debouncedFilters.search }),
+    ...(debouncedFilters.startDate &&
+      debouncedFilters.endDate && {
+        startDate: debouncedFilters.startDate,
+        endDate: debouncedFilters.endDate,
+      }),
+    ...(debouncedFilters.creditDebitIndicator && {
+      creditDebitIndicator: debouncedFilters.creditDebitIndicator,
+    }),
+    ...(debouncedFilters.minAmount && {
+      minAmount: debouncedFilters.minAmount,
+    }),
+    ...(debouncedFilters.maxAmount && {
+      maxAmount: debouncedFilters.maxAmount,
+    }),
+  }
+  const { data: totals, isLoading: totalsLoading } = useGroupTotals(
+    id,
+    totalsParams
+  )
+
   const clearFilters = () => {
     setAccountFilter("all")
     setSearchQuery("")
@@ -152,6 +181,19 @@ function GroupTransactionsPage() {
   const handleTransactionClick = (transaction: Transaction) => {
     setSelectedTransaction(transaction)
     setDetailsSheetOpen(true)
+  }
+
+  const handleRemoveFromGroup = async (transactionId: string) => {
+    try {
+      await categoriesApi.removeTransaction(id, transactionId)
+      queryClient.invalidateQueries({
+        queryKey: ["category-transactions-by-rules", id],
+      })
+      queryClient.invalidateQueries({ queryKey: ["categories"] })
+      toast.success("Transaction removed from group")
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to remove transaction from group")
+    }
   }
 
   const handleBackClick = () => {
@@ -223,6 +265,13 @@ function GroupTransactionsPage() {
                 )}
               </div>
             </div>
+            <div className="shrink-0">
+              <TransactionTotalsDisplay
+                isLoading={totalsLoading}
+                totals={totals}
+                className="mb-0"
+              />
+            </div>
           </div>
         </CardHeader>
         <CardContent className="flex min-h-0 flex-1 flex-col">
@@ -251,6 +300,8 @@ function GroupTransactionsPage() {
               isFetching={isFetching}
               error={error}
               onTransactionClick={handleTransactionClick}
+              onRemoveFromGroup={handleRemoveFromGroup}
+              manualTransactionIds={category?.manualTransactionIds}
             />
 
             {pagination && pagination.totalPages > 1 && (

@@ -34,6 +34,7 @@ import {
 } from "lucide-react"
 import { useState } from "react"
 import type { DateRange } from "react-day-picker"
+import { useTransactionCurrencies } from "../../hooks/use-transactions"
 import type { BankAccount } from "../../types/bank-account"
 
 interface TransactionFiltersProps {
@@ -51,6 +52,8 @@ interface TransactionFiltersProps {
   onMinAmountChange: (value: string) => void
   maxAmount: string
   onMaxAmountChange: (value: string) => void
+  currencyFilter: string
+  onCurrencyFilterChange: (value: string) => void
   onClearFilters: () => void
 }
 
@@ -69,16 +72,20 @@ export function TransactionFilters({
   onMinAmountChange,
   maxAmount,
   onMaxAmountChange,
+  currencyFilter,
+  onCurrencyFilterChange,
   onClearFilters,
 }: TransactionFiltersProps) {
   const [accountOpen, setAccountOpen] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const { data: currencies = [] } = useTransactionCurrencies()
 
   const hasActiveFilters =
     accountFilter !== "all" ||
     searchQuery ||
     dateRange ||
     typeFilter !== "all" ||
+    currencyFilter !== "all" ||
     minAmount ||
     maxAmount
 
@@ -86,6 +93,7 @@ export function TransactionFilters({
     (accountFilter !== "all" ? 1 : 0) +
     (dateRange ? 1 : 0) +
     (typeFilter !== "all" ? 1 : 0) +
+    (currencyFilter !== "all" ? 1 : 0) +
     (minAmount || maxAmount ? 1 : 0)
 
   const selectedAccount = accounts.find((acc) => acc._id === accountFilter)
@@ -248,6 +256,27 @@ export function TransactionFilters({
                     <SelectItem value="all">All Types</SelectItem>
                     <SelectItem value="credit">Credit</SelectItem>
                     <SelectItem value="debit">Debit</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Currency Filter */}
+              <div className="space-y-2">
+                <Label htmlFor="currency">Currency</Label>
+                <Select
+                  value={currencyFilter}
+                  onValueChange={onCurrencyFilterChange}
+                >
+                  <SelectTrigger id="currency">
+                    <SelectValue placeholder="All currencies" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Currencies</SelectItem>
+                    {currencies.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

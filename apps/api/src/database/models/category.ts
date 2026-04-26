@@ -1,7 +1,14 @@
 import mongoose, { Document, Model, Schema } from 'mongoose';
 
 export interface ICategoryRule {
-  field: 'store' | 'location' | 'amount' | 'notes' | 'tags';
+  field:
+    | 'store'
+    | 'location'
+    | 'amount'
+    | 'notes'
+    | 'tags'
+    | 'date'
+    | 'currency';
   operator:
     | 'equals'
     | 'contains'
@@ -9,7 +16,10 @@ export interface ICategoryRule {
     | 'endsWith'
     | 'greaterThan'
     | 'lessThan'
-    | 'between';
+    | 'between'
+    | 'after'
+    | 'before'
+    | 'betweenDates';
   value: string | number | string[];
   caseSensitive?: boolean;
 }
@@ -26,6 +36,12 @@ export interface ICategory {
   // Visual customization
   color?: string;
   icon?: string;
+
+  // Manually pinned transaction IDs
+  manualTransactionIds: mongoose.Types.ObjectId[];
+
+  // Explicitly excluded transaction IDs (overrides rule matches)
+  excludedTransactionIds: mongoose.Types.ObjectId[];
 
   // Statistics
   transactionCount?: number;
@@ -64,7 +80,15 @@ const categoryRuleSchema = new Schema<ICategoryRule>(
       type: String,
       required: [true, 'Rule field is required'],
       enum: {
-        values: ['store', 'location', 'amount', 'notes', 'tags'],
+        values: [
+          'store',
+          'location',
+          'amount',
+          'notes',
+          'tags',
+          'date',
+          'currency',
+        ],
         message: '{VALUE} is not a valid field',
       },
     },
@@ -80,6 +104,9 @@ const categoryRuleSchema = new Schema<ICategoryRule>(
           'greaterThan',
           'lessThan',
           'between',
+          'after',
+          'before',
+          'betweenDates',
         ],
         message: '{VALUE} is not a valid operator',
       },
@@ -136,6 +163,18 @@ const categorySchema = new Schema<ICategory, CategoryModel, ICategoryMethods>(
       maxlength: [50, 'Icon name cannot exceed 50 characters'],
     },
 
+    // Manually pinned transactions
+    manualTransactionIds: {
+      type: [{ type: Schema.Types.ObjectId, ref: 'Transaction' }],
+      default: [],
+    },
+
+    // Explicitly excluded transactions (overrides rule matches)
+    excludedTransactionIds: {
+      type: [{ type: Schema.Types.ObjectId, ref: 'Transaction' }],
+      default: [],
+    },
+
     // Statistics
     transactionCount: {
       type: Number,
@@ -151,6 +190,34 @@ const categorySchema = new Schema<ICategory, CategoryModel, ICategoryMethods>(
         if (this.rules.length === 0) return false;
 
         return this.rules.every((rule) => {
+          // Special handling for nested/non-direct fields
+          if (rule.field === 'currency') {
+            const currency = transaction.amount?.currency;
+            if (!currency) return false;
+            return rule.operator === 'equals' ? currency === rule.value : false;
+          }
+
+          if (rule.field === 'date') {
+            const txDate = transaction.date ? new Date(transaction.date) : null;
+            if (!txDate) return false;
+            if (rule.operator === 'after') {
+              return txDate >= new Date(rule.value as string);
+            }
+            if (rule.operator === 'before') {
+              return txDate <= new Date(rule.value as string);
+            }
+            if (rule.operator === 'betweenDates') {
+              if (Array.isArray(rule.value) && rule.value.length === 2) {
+                return (
+                  txDate >= new Date(rule.value[0]) &&
+                  txDate <= new Date(rule.value[1])
+                );
+              }
+              return false;
+            }
+            return false;
+          }
+
           const fieldValue = transaction[rule.field];
 
           // Handle null/undefined values

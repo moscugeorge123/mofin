@@ -17,6 +17,7 @@ export const transactionKeys = {
     [...transactionKeys.files(), fileId, "totals"] as const,
   totals: (params?: TransactionsQueryParams) =>
     [...transactionKeys.all, "totals", params] as const,
+  currencies: () => [...transactionKeys.all, "currencies"] as const,
 }
 
 export function useTransactions(params?: TransactionsQueryParams) {
@@ -40,6 +41,14 @@ export function useTransactionTotals(params?: TransactionsQueryParams) {
     queryKey: transactionKeys.totals(params),
     queryFn: () => transactionsApi.getTotals(params),
     staleTime: Number.POSITIVE_INFINITY, // Infinite stale time
+  })
+}
+
+export function useTransactionCurrencies() {
+  return useQuery({
+    queryKey: transactionKeys.currencies(),
+    queryFn: () => transactionsApi.getCurrencies(),
+    staleTime: 5 * 60 * 1000,
   })
 }
 

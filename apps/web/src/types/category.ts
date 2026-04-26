@@ -1,5 +1,12 @@
 export interface CategoryRule {
-  field: "store" | "location" | "amount" | "notes" | "tags"
+  field:
+    | "store"
+    | "location"
+    | "amount"
+    | "notes"
+    | "tags"
+    | "date"
+    | "currency"
   operator:
     | "equals"
     | "contains"
@@ -8,6 +15,9 @@ export interface CategoryRule {
     | "greaterThan"
     | "lessThan"
     | "between"
+    | "after"
+    | "before"
+    | "betweenDates"
   value: string | number | string[]
   caseSensitive?: boolean
 }
@@ -21,6 +31,7 @@ export interface Category {
   color?: string
   icon?: string
   transactionCount?: number
+  manualTransactionIds?: string[]
   createdAt: string
   updatedAt: string
 }

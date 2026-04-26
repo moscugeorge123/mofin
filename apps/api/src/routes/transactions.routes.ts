@@ -11,6 +11,9 @@ router.use(authMiddleware);
 // Get transaction totals (credit and debit sums)
 router.get('/totals', TransactionController.getTotals);
 
+// Get distinct currencies used in transactions
+router.get('/currencies', TransactionController.getCurrencies);
+
 // Extract transactions from uploaded file (PDF, CSV)
 router.post(
   '/extract',

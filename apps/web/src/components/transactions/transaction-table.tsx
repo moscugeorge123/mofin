@@ -1,4 +1,12 @@
+import { Badge } from "@workspace/ui/components/badge"
+import { Button } from "@workspace/ui/components/button"
 import { Checkbox } from "@workspace/ui/components/checkbox"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@workspace/ui/components/dropdown-menu"
 import { LoadingOverlay } from "@workspace/ui/components/loading-overlay"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 import {
@@ -15,7 +23,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
+import { useState } from "react"
+import { useCurrencyRates } from "../../hooks/use-currency-rates"
+import { formatNumber } from "../../lib/utils"
 import type { Transaction } from "../../types/transaction"
+import { AddToGroupDialog } from "./add-to-group-dialog"
 
 interface TransactionTableProps {
   transactions: Transaction[]
@@ -25,6 +37,8 @@ interface TransactionTableProps {
   onTransactionClick?: (transaction: Transaction) => void
   selectedTransactions?: string[]
   onSelectionChange?: (transactionIds: string[]) => void
+  onRemoveFromGroup?: (transactionId: string) => void
+  manualTransactionIds?: string[]
 }
 
 export function TransactionTable({
@@ -35,7 +49,24 @@ export function TransactionTable({
   onTransactionClick,
   selectedTransactions = [],
   onSelectionChange,
+  onRemoveFromGroup,
+  manualTransactionIds = [],
 }: TransactionTableProps) {
+  const manualSet = new Set(manualTransactionIds)
+  const { data: currencyRates } = useCurrencyRates()
+  const [addToGroupTransactionId, setAddToGroupTransactionId] = useState<
+    string | null
+  >(null)
+
+  const toRON = (amount: number, currency: string): number | null => {
+    if (!currencyRates) return null
+    if (currency === "RON") return amount
+    const key = `${currency}_RON` as keyof typeof currencyRates
+    const rate = currencyRates[key]
+    if (typeof rate !== "number") return null
+    return amount * rate
+  }
+
   const handleSelectAll = (checked: boolean) => {
     if (!onSelectionChange) return
     if (checked) {
@@ -80,6 +111,7 @@ export function TransactionTable({
               <TableHead>Notes</TableHead>
               <TableHead>Category</TableHead>
               <TableHead className="text-right">Amount</TableHead>
+              <TableHead className="w-16" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -105,6 +137,7 @@ export function TransactionTable({
                 <TableCell className="text-right">
                   <Skeleton className="ml-auto h-4 w-20" />
                 </TableCell>
+                <TableCell />
               </TableRow>
             ))}
           </TableBody>
@@ -136,13 +169,14 @@ export function TransactionTable({
             <TableHead>Notes</TableHead>
             <TableHead>Category</TableHead>
             <TableHead className="text-right">Amount</TableHead>
+            <TableHead className="w-16">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {transactions.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={onSelectionChange ? 6 : 5}
+                colSpan={onSelectionChange ? 7 : 6}
                 className="text-center text-muted-foreground"
               >
                 No transactions found
@@ -184,7 +218,19 @@ export function TransactionTable({
                       year: "numeric",
                     })}
                   </TableCell>
-                  <TableCell>{transaction.store || "-"}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      {transaction.store || "-"}
+                      {manualSet.has(transaction._id) && (
+                        <Badge
+                          variant="secondary"
+                          className="px-1 py-0 text-[10px]"
+                        >
+                          Manual
+                        </Badge>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell className="max-w-xs truncate">
                     {transaction.notes ? (
                       <TooltipProvider>
@@ -213,9 +259,68 @@ export function TransactionTable({
                         : ""
                     }`}
                   >
-                    {transaction.creditDebitIndicator === "Credit" ? "+" : ""}
-                    {Math.abs(transaction.amount.sum).toFixed(2)}{" "}
-                    {transaction.amount.currency}
+                    {(() => {
+                      const { sum, currency } = transaction.amount
+                      const sign =
+                        transaction.creditDebitIndicator === "Credit" ? "+" : ""
+                      const ronValue = toRON(Math.abs(sum), currency)
+                      const showOriginal =
+                        currency !== "RON" && ronValue !== null
+                      return (
+                        <div className="flex flex-col items-end leading-tight">
+                          <span>
+                            {sign}
+                            {formatNumber(ronValue ?? Math.abs(sum))} RON
+                          </span>
+                          {showOriginal && (
+                            <span className="text-xs font-normal text-muted-foreground">
+                              {sign}
+                              {formatNumber(Math.abs(sum))} {currency}
+                            </span>
+                          )}
+                        </div>
+                      )
+                    })()}
+                  </TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className={"h-7 w-7 p-0"}
+                          hidden={
+                            !!onRemoveFromGroup &&
+                            !manualSet.has(transaction._id)
+                          }
+                        >
+                          <span className="sr-only">Open actions</span>
+                          &#8942;
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        {!onRemoveFromGroup && (
+                          <DropdownMenuItem
+                            onSelect={() =>
+                              setAddToGroupTransactionId(transaction._id)
+                            }
+                          >
+                            Add to group
+                          </DropdownMenuItem>
+                        )}
+                        {onRemoveFromGroup &&
+                          manualSet.has(transaction._id) && (
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onSelect={() =>
+                                onRemoveFromGroup(transaction._id)
+                              }
+                            >
+                              Remove from group
+                            </DropdownMenuItem>
+                          )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               )
@@ -223,6 +328,16 @@ export function TransactionTable({
           )}
         </TableBody>
       </Table>
+
+      {addToGroupTransactionId && (
+        <AddToGroupDialog
+          open={!!addToGroupTransactionId}
+          onOpenChange={(open) => {
+            if (!open) setAddToGroupTransactionId(null)
+          }}
+          transactionId={addToGroupTransactionId}
+        />
+      )}
     </div>
   )
 }

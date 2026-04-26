@@ -30,6 +30,10 @@ export const transactionsApi = {
     return apiClient.get<Transaction>(`/api/transactions/${id}`)
   },
 
+  getCurrencies: async (): Promise<string[]> => {
+    return apiClient.get<string[]>("/api/transactions/currencies")
+  },
+
   create: async (data: Partial<Transaction>): Promise<Transaction> => {
     return apiClient.post<Transaction>("/api/transactions", data)
   },
@@ -106,6 +110,7 @@ export const transactionsApi = {
     credit: number
     debit: number
     balance: number
+    byCurrency: Record<string, { credit: number; debit: number }>
   }> => {
     const queryParams = new URLSearchParams()
 
@@ -125,6 +130,7 @@ export const transactionsApi = {
       credit: number
       debit: number
       balance: number
+      byCurrency: Record<string, { credit: number; debit: number }>
     }>(`/api/transactions/totals${queryString ? `?${queryString}` : ""}`)
   },
 
@@ -134,11 +140,13 @@ export const transactionsApi = {
     credit: number
     debit: number
     balance: number
+    byCurrency: Record<string, { credit: number; debit: number }>
   }> => {
     return apiClient.get<{
       credit: number
       debit: number
       balance: number
+      byCurrency: Record<string, { credit: number; debit: number }>
     }>(`/api/transactions/files/${fileId}/totals`)
   },
 

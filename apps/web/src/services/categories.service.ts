@@ -65,9 +65,59 @@ export const categoriesApi = {
     return apiClient.get(url)
   },
 
+  getGroupTotals: async (
+    id: string,
+    params?: {
+      accountId?: string
+      startDate?: string
+      endDate?: string
+      status?: string
+      search?: string
+      creditDebitIndicator?: string
+      minAmount?: string
+      maxAmount?: string
+    }
+  ): Promise<{
+    credit: number
+    debit: number
+    balance: number
+    byCurrency: Record<string, { credit: number; debit: number }>
+  }> => {
+    const queryParams = new URLSearchParams()
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, String(value))
+        }
+      })
+    }
+    const queryString = queryParams.toString()
+    return apiClient.get(
+      `/api/categories/${id}/transactions/by-rules/totals${queryString ? `?${queryString}` : ""}`
+    )
+  },
+
   updateCount: async (id: string): Promise<{ count: number }> => {
     return apiClient.post<{ count: number }>(
       `/api/categories/${id}/update-count`
+    )
+  },
+
+  addTransaction: async (
+    categoryId: string,
+    transactionId: string
+  ): Promise<void> => {
+    return apiClient.post<void>(
+      `/api/categories/${categoryId}/transactions/${transactionId}`
+    )
+  },
+
+  removeTransaction: async (
+    categoryId: string,
+    transactionId: string
+  ): Promise<void> => {
+    return apiClient.delete<void>(
+      `/api/categories/${categoryId}/transactions/${transactionId}`
     )
   },
 }

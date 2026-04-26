@@ -19,6 +19,7 @@ import {
   SheetTitle,
 } from "@workspace/ui/components/sheet"
 import { Textarea } from "@workspace/ui/components/textarea"
+import { cn } from "@workspace/ui/lib/utils"
 import { Loader2, Receipt } from "lucide-react"
 import { useEffect } from "react"
 import { useForm } from "react-hook-form"
@@ -198,70 +199,74 @@ export function TransactionDetailsSheet({
                 </div>
               </div>
 
-              {/* Type */}
-              <div className="space-y-2">
-                <Label htmlFor="creditDebitIndicator">Type</Label>
-                <Select
-                  value={form.watch("creditDebitIndicator")}
-                  onValueChange={(value) =>
-                    form.setValue(
-                      "creditDebitIndicator",
-                      value as "Credit" | "Debit",
-                      { shouldValidate: true }
-                    )
-                  }
-                >
-                  <SelectTrigger
-                    id="creditDebitIndicator"
-                    className={
-                      form.formState.errors.creditDebitIndicator
-                        ? "border-destructive"
-                        : ""
+              <div className="flex w-full gap-2">
+                {/* Type */}
+                <div className="flex-1 space-y-2">
+                  <Label htmlFor="creditDebitIndicator">Type</Label>
+                  <Select
+                    value={form.watch("creditDebitIndicator")}
+                    onValueChange={(value) =>
+                      form.setValue(
+                        "creditDebitIndicator",
+                        value as "Credit" | "Debit",
+                        { shouldValidate: true }
+                      )
                     }
                   >
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Credit">Credit</SelectItem>
-                    <SelectItem value="Debit">Debit</SelectItem>
-                  </SelectContent>
-                </Select>
-                {form.formState.errors.creditDebitIndicator && (
-                  <p className="text-sm text-destructive">
-                    {form.formState.errors.creditDebitIndicator.message}
-                  </p>
-                )}
-              </div>
+                    <SelectTrigger
+                      id="creditDebitIndicator"
+                      className={cn(
+                        "w-full",
+                        form.formState.errors.creditDebitIndicator
+                          ? "border-destructive"
+                          : ""
+                      )}
+                    >
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Credit">Credit</SelectItem>
+                      <SelectItem value="Debit">Debit</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {form.formState.errors.creditDebitIndicator && (
+                    <p className="text-sm text-destructive">
+                      {form.formState.errors.creditDebitIndicator.message}
+                    </p>
+                  )}
+                </div>
 
-              {/* Status */}
-              <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
-                <Select
-                  value={form.watch("status")}
-                  onValueChange={(value) =>
-                    form.setValue("status", value as "Booked" | "Pending", {
-                      shouldValidate: true,
-                    })
-                  }
-                >
-                  <SelectTrigger
-                    id="status"
-                    className={
-                      form.formState.errors.status ? "border-destructive" : ""
+                {/* Status */}
+                <div className="flex-1 space-y-2">
+                  <Label htmlFor="status">Status</Label>
+                  <Select
+                    value={form.watch("status")}
+                    onValueChange={(value) =>
+                      form.setValue("status", value as "Booked" | "Pending", {
+                        shouldValidate: true,
+                      })
                     }
                   >
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Booked">Booked</SelectItem>
-                    <SelectItem value="Pending">Pending</SelectItem>
-                  </SelectContent>
-                </Select>
-                {form.formState.errors.status && (
-                  <p className="text-sm text-destructive">
-                    {form.formState.errors.status.message}
-                  </p>
-                )}
+                    <SelectTrigger
+                      id="status"
+                      className={cn(
+                        "w-full",
+                        form.formState.errors.status ? "border-destructive" : ""
+                      )}
+                    >
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Booked">Booked</SelectItem>
+                      <SelectItem value="Pending">Pending</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {form.formState.errors.status && (
+                    <p className="text-sm text-destructive">
+                      {form.formState.errors.status.message}
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* Notes */}

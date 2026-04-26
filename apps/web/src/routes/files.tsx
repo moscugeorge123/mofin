@@ -37,12 +37,13 @@ import {
   Trash2,
   XCircle,
 } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 import { DashboardLayout } from "../components/dashboard-layout"
 import { TransactionDetailsSheet } from "../components/transactions/transaction-details-sheet"
 import { TransactionTable } from "../components/transactions/transaction-table"
 import { TransactionTotalsDisplay } from "../components/transactions/transaction-totals"
+import { useCurrencyRates } from "../hooks/use-currency-rates"
 import {
   useDeleteFile,
   useFileStatus,
@@ -90,20 +91,60 @@ function FilesPage() {
   const selectedFile = files.find((f) => f.fileId === selectedFileId)
   const fileTransactions = fileDetails?.transactions || []
 
-  // Calculate selected transaction totals
-  const selectedTotals = fileTransactions
-    .filter((t) => selectedTransactionIds.includes(t._id))
-    .reduce(
-      (acc, t) => {
-        if (t.creditDebitIndicator === "Credit") {
-          acc.credit += t.amount.sum
-        } else {
-          acc.debit += t.amount.sum
-        }
-        return acc
-      },
-      { credit: 0, debit: 0 }
+  // Get currency rates
+  const { data: currencyRates } = useCurrencyRates()
+
+  // Calculate selected transaction totals with currency conversion
+  const selectedTotals = useMemo(() => {
+    const selected = fileTransactions.filter((t) =>
+      selectedTransactionIds.includes(t._id)
     )
+
+    const byCurrency: Record<string, { credit: number; debit: number }> = {}
+    let creditRON = 0
+    let debitRON = 0
+
+    selected.forEach((t) => {
+      const currency = t.amount.currency
+      const amount = t.amount.sum
+
+      // Initialize currency in breakdown
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+      if (!byCurrency[currency]) {
+        byCurrency[currency] = { credit: 0, debit: 0 }
+      }
+
+      // Add to currency breakdown
+      if (t.creditDebitIndicator === "Credit") {
+        byCurrency[currency].credit += amount
+      } else {
+        byCurrency[currency].debit += amount
+      }
+
+      // Convert to RON
+      let amountInRON = amount
+      if (currency !== "RON" && currencyRates) {
+        const rateKey = `${currency}_RON` as keyof typeof currencyRates
+        const rate = currencyRates[rateKey]
+        if (typeof rate === "number") {
+          amountInRON = amount * rate
+        }
+      }
+
+      // Add to RON totals
+      if (t.creditDebitIndicator === "Credit") {
+        creditRON += amountInRON
+      } else {
+        debitRON += amountInRON
+      }
+    })
+
+    return {
+      credit: creditRON,
+      debit: debitRON,
+      byCurrency: Object.keys(byCurrency).length > 0 ? byCurrency : undefined,
+    }
+  }, [fileTransactions, selectedTransactionIds, currencyRates])
 
   // Clear selections when file changes
   useEffect(() => {
