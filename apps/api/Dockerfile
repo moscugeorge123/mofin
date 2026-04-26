@@ -10,7 +10,7 @@ COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps/api/package.json ./apps/api/
 
 # Install only the API's dependencies (ignore unrelated workspace packages)
-RUN pnpm install --frozen-lockfile --filter accounting-be...
+RUN pnpm install --no-frozen-lockfile --filter accounting-be...
 
 # Copy API source
 COPY apps/api/ ./apps/api/
@@ -33,4 +33,4 @@ COPY --from=builder /app/apps/api/dist ./apps/api/dist
 
 EXPOSE 3000
 
-CMD ["node", "apps/api/dist/server.js"]
+CMD ["node", "apps/api/dist/src/server.js"]
