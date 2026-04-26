@@ -14,6 +14,7 @@ RUN pnpm install --frozen-lockfile --filter accounting-be...
 
 # Copy API source
 COPY apps/api/ ./apps/api/
+RUN mkdir -p apps/api/uploads
 
 # Compile TypeScript
 RUN pnpm --filter accounting-be build
