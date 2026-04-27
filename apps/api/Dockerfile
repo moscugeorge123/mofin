@@ -33,9 +33,6 @@ COPY --from=builder /app/deploy/node_modules ./node_modules
 # Compiled output
 COPY --from=builder /app/apps/api/dist ./dist
 
-# Certs (referenced at runtime via env vars or relative paths)
-COPY --from=builder /app/apps/api/certs ./certs
-
 # Copy existing uploads and ensure the directory is writable
 COPY --from=builder /app/apps/api/uploads ./uploads
 RUN mkdir -p uploads

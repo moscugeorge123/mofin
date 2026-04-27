@@ -33,7 +33,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: ${API_PORT:-3000}
-      MONGO_URI: mongodb://${MONGO_ROOT_USER:-admin}:${MONGO_ROOT_PASSWORD:-changeme}@mongo:27017/${MONGO_DB:-mofin}?authSource=admin
+      MONGO_URI: mongodb://mongo:27017/${MONGO_DB:-mofin}
       JWT_SECRET: ${JWT_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       SALT: ${SALT}
