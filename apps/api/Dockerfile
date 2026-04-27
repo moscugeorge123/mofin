@@ -10,7 +10,7 @@ COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps/api/package.json ./apps/api/
 
 # Install all workspace dependencies
-RUN pnpm install --frozen-lockfile --filter accounting-be...
+RUN pnpm install --filter accounting-be...
 
 # Copy API source
 COPY apps/api/ ./apps/api/

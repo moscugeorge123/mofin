@@ -11,7 +11,7 @@ COPY apps/web/package.json ./apps/web/
 COPY packages/ui/package.json ./packages/ui/
 
 # Install all dependencies needed by the web app and its workspace deps
-RUN pnpm install --frozen-lockfile --filter web...
+RUN pnpm install --filter web...
 
 # Copy workspace packages and web source
 COPY packages/ ./packages/
