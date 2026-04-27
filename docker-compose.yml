@@ -53,7 +53,7 @@ services:
     depends_on:
       - api
     ports:
-      - "${WEB_PORT:-4000}:3000"
+      - "${WEB_PORT:-4000}:4000"
     networks:
       - mofin-network
 
