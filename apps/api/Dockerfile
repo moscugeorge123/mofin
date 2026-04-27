@@ -5,32 +5,41 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 
 WORKDIR /app
 
-# Copy only the manifests needed for dependency resolution first (better layer caching)
+# Copy manifests for dependency resolution (layer caching)
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps/api/package.json ./apps/api/
 
-# Install only the API's dependencies (ignore unrelated workspace packages)
-RUN pnpm install --no-frozen-lockfile --filter accounting-be...
+# Install all workspace dependencies
+RUN pnpm install --frozen-lockfile --filter accounting-be...
 
 # Copy API source
 COPY apps/api/ ./apps/api/
-RUN mkdir -p apps/api/uploads
 
 # Compile TypeScript
 RUN pnpm --filter accounting-be build
+
+# Create a self-contained deployment folder with production deps only
+# pnpm deploy resolves the virtual store into real node_modules (no symlinks)
+RUN pnpm --filter accounting-be deploy --prod /app/deploy
 
 # ── Stage 2: production image ──────────────────────────────────────────────────
 FROM node:22-alpine AS production
 
 WORKDIR /app
 
-# Copy installed node_modules from builder (avoids a second pnpm install)
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/apps/api/node_modules ./apps/api/node_modules
+# Production node_modules from pnpm deploy (fully resolved, no symlinks)
+COPY --from=builder /app/deploy/node_modules ./node_modules
 
-# Copy compiled output from builder
-COPY --from=builder /app/apps/api/dist ./apps/api/dist
+# Compiled output
+COPY --from=builder /app/apps/api/dist ./dist
+
+# Certs (referenced at runtime via env vars or relative paths)
+COPY --from=builder /app/apps/api/certs ./certs
+
+# Copy existing uploads and ensure the directory is writable
+COPY --from=builder /app/apps/api/uploads ./uploads
+RUN mkdir -p uploads
 
 EXPOSE 3000
 
-CMD ["node", "apps/api/dist/src/server.js"]
+CMD ["node", "dist/src/server.js"]
