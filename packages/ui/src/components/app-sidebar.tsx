@@ -22,17 +22,27 @@ interface User {
   avatar?: string
 }
 
+function prefixPath(basePath: string, path: string) {
+  const base = basePath.replace(/\/$/, "")
+  if (path === "/") {
+    return base ? `${base}/` : "/"
+  }
+  return `${base}${path}`
+}
+
 export function AppSidebar({
   currentPath,
   user,
   onLogout,
   hasProcessingFiles,
+  basePath = "/",
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
   currentPath?: string
   user?: User | null
   onLogout?: () => void
   hasProcessingFiles?: boolean
+  basePath?: string
 }) {
   const data = {
     user: {
@@ -43,31 +53,31 @@ export function AppSidebar({
     navMain: [
       {
         title: "Dashboard",
-        url: "/",
+        url: prefixPath(basePath, "/"),
         icon: <LayoutDashboardIcon />,
         isActive: currentPath === "/",
       },
       {
         title: "Bank Accounts",
-        url: "/bank-accounts",
+        url: prefixPath(basePath, "/bank-accounts"),
         icon: <WalletIcon />,
         isActive: currentPath === "/bank-accounts",
       },
       {
         title: "Transactions",
-        url: "/transactions",
+        url: prefixPath(basePath, "/transactions"),
         icon: <ReceiptIcon />,
         isActive: currentPath === "/transactions",
       },
       {
         title: "Groups",
-        url: "/groups",
+        url: prefixPath(basePath, "/groups"),
         icon: <FoldersIcon />,
         isActive: currentPath === "/groups",
       },
       {
         title: "Snapshots",
-        url: "/snapshots",
+        url: prefixPath(basePath, "/snapshots"),
         icon: <CameraIcon />,
         isActive: currentPath === "/snapshots",
       },
@@ -75,7 +85,7 @@ export function AppSidebar({
     beforeUserMenu: [
       {
         title: "Files",
-        url: "/files",
+        url: prefixPath(basePath, "/files"),
         icon: <FileTextIcon />,
         isActive: currentPath === "/files",
         isLoading: hasProcessingFiles,

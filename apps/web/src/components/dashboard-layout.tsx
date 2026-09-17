@@ -17,6 +17,7 @@ import { TooltipProvider } from "@workspace/ui/components/tooltip"
 import { useLogout } from "../hooks/use-auth"
 import { useTransactionFiles } from "../hooks/use-transactions"
 import { useUser } from "../hooks/use-user"
+import { withBasePath } from "../lib/base-path"
 
 export type BreadcrumbItem = {
   label: string
@@ -64,6 +65,7 @@ export function DashboardLayout({
           user={sidebarUser}
           onLogout={handleLogout}
           hasProcessingFiles={hasProcessingFiles}
+          basePath={import.meta.env.BASE_URL}
         />
         <SidebarInset className="flex flex-col overflow-hidden">
           <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
@@ -77,7 +79,7 @@ export function DashboardLayout({
                       {item.isCurrentPage ? (
                         <BreadcrumbPage>{item.label}</BreadcrumbPage>
                       ) : (
-                        <BreadcrumbLink href={item.href}>
+                        <BreadcrumbLink href={item.href ? withBasePath(item.href) : undefined}>
                           {item.label}
                         </BreadcrumbLink>
                       )}

@@ -6,6 +6,7 @@ import tailwindcss from "@tailwindcss/vite"
 import { nitro } from "nitro/vite"
 
 const config = defineConfig({
+  base: process.env.VITE_BASE_PATH || "/mofin/",
   plugins: [
     nitro(),
     viteTsConfigPaths({

@@ -19,7 +19,9 @@ COPY apps/web/ ./apps/web/
 
 # Build arguments for injecting env vars at build time (client-side)
 ARG VITE_API_URL
+ARG VITE_BASE_PATH=/mofin/
 ENV VITE_API_URL=${VITE_API_URL}
+ENV VITE_BASE_PATH=${VITE_BASE_PATH}
 
 # Build the TanStack Start / Nitro app — outputs to apps/web/.output/
 RUN pnpm --filter web build
@@ -35,6 +37,7 @@ WORKDIR /app
 COPY --from=builder /app/apps/web/.output ./.output
 
 ENV PORT=4000
+ENV NITRO_APP_BASE_URL=/mofin/
 EXPOSE 4000
 
 # Nitro's entry point; PORT env var controls the listening port

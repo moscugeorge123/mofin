@@ -33,9 +33,10 @@ services:
     environment:
       NODE_ENV: production
       PORT: ${API_PORT:-3000}
-      MONGO_URI: mongodb://mongo:27017/${MONGO_DB:-mofin}
+      MONGO_URI:  mongodb://${MONGO_ROOT_USER:-admin}:${MONGO_ROOT_PASSWORD:-changeme}@mongo:27017/${MONGO_DB:-mofin}?authSource=admin
       JWT_SECRET: ${JWT_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
       SALT: ${SALT}
     ports:
       - "${API_PORT:-3000}:3000"
@@ -47,11 +48,15 @@ services:
       context: .
       dockerfile: apps/web/Dockerfile
       args:
-        VITE_API_URL: ${VITE_API_URL:-http://localhost:3000}
+        VITE_API_URL: ${VITE_API_URL:-/mofin-api}
+        VITE_BASE_PATH: ${VITE_BASE_PATH:-/mofin/}
     container_name: mofin-web
     restart: unless-stopped
     depends_on:
       - api
+    environment:
+      PORT: "4000"
+      NITRO_APP_BASE_URL: ${VITE_BASE_PATH:-/mofin/}
     ports:
       - "${WEB_PORT:-4000}:4000"
     networks:

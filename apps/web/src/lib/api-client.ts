@@ -1,3 +1,5 @@
+import { withBasePath } from "./base-path"
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3020"
 
 class ApiClient {
@@ -80,7 +82,7 @@ class ApiClient {
       if (response.status === 401) {
         this.clearToken()
         if (typeof window !== "undefined") {
-          window.location.href = "/login"
+          window.location.href = withBasePath("/login")
         }
       }
       const error = await response.json().catch(() => ({
